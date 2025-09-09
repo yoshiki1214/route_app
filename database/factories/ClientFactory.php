@@ -21,7 +21,6 @@ class ClientFactory extends Factory
             'latitude' => $latitude,
             'longitude' => $longitude,
             'phone' => $this->faker->phoneNumber(),
-            'fax' => $this->faker->phoneNumber(),
             'email' => $this->faker->companyEmail(),
             'contact_person' => $this->faker->name(),
             'department' => $this->faker->randomElement(['営業部', '総務部', '人事部', '経理部', '開発部']),

@@ -12,6 +12,10 @@ $selectClient = function ($clientId) {
     $this->selectedClient = Client::find($clientId);
 };
 
+$refreshClients = function () {
+    $this->dispatch('refresh-clients');
+};
+
 ?>
 
 <div class="min-h-screen bg-gray-100">
@@ -39,6 +43,9 @@ $selectClient = function ($clientId) {
 
             <div class="mt-6">
                 @if ($activeTab === 'clients')
+                    <div class="mb-4 flex justify-end">
+                        <livewire:client-create />
+                    </div>
                     <div class="grid grid-cols-1 gap-6">
                         <div>
                             <livewire:clientlist />

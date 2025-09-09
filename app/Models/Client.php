@@ -18,7 +18,6 @@ class Client extends Model
         'latitude',
         'longitude',
         'phone',
-        'fax',
         'email',
         'contact_person',
         'department',

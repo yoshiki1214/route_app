@@ -5,6 +5,7 @@ use Livewire\Volt\Volt;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/', 'salesmanager')->name('dashboard');
+    Volt::route('/home', 'salesmanager')->name('home');  // homeルートを追加
 
     Route::redirect('settings', 'settings/profile');
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
