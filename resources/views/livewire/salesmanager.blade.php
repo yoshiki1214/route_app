@@ -39,12 +39,9 @@ $selectClient = function ($clientId) {
 
             <div class="mt-6">
                 @if ($activeTab === 'clients')
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <livewire:clientlist />
-                        </div>
+                    <div class="grid grid-cols-1 gap-6">
                         <div>
-                            <livewire:locationtracker />
+                            <livewire:clientlist />
                         </div>
                     </div>
                 @elseif($activeTab === 'route')
