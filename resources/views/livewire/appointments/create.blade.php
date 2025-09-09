@@ -1,22 +1,31 @@
 <?php
 
-use function Livewire\Volt\{state, rules, computed};
+use function Livewire\Volt\{state, rules, computed, mount};
 use App\Models\Client;
 use App\Models\Appointment;
+use App\Models\Visit;
 use Carbon\Carbon;
 
 state([
     'clients' => fn() => Client::all(),
     'selected_client_id' => '',
     'title' => '',
+    'visit_type' => '訪問',
     'start_datetime' => '',
     'end_datetime' => '',
     'memo' => '',
 ]);
 
+mount(function ($client_id = null) {
+    if ($client_id) {
+        $this->selected_client_id = $client_id;
+    }
+});
+
 rules([
     'selected_client_id' => 'required|exists:clients,id',
     'title' => 'required|string|max:255',
+    'visit_type' => 'required|string|max:255',
     'start_datetime' => 'required|date|after:now',
     'end_datetime' => 'required|date|after:start_datetime',
     'memo' => 'nullable|string|max:1000',
@@ -25,13 +34,25 @@ rules([
 $save = function () {
     $validated = $this->validate();
 
-    Appointment::create([
+    $appointment = Appointment::create([
         'client_id' => $validated['selected_client_id'],
         'user_id' => auth()->id(),
         'title' => $validated['title'],
+        'visit_type' => $validated['visit_type'],
         'start_datetime' => $validated['start_datetime'],
         'end_datetime' => $validated['end_datetime'],
         'memo' => $validated['memo'],
+    ]);
+
+    // アポイントメントを訪問履歴に予定として追加
+    Visit::create([
+        'client_id' => $validated['selected_client_id'],
+        'user_id' => auth()->id(),
+        'visit_type' => $validated['visit_type'],
+        'visited_at' => $validated['start_datetime'],
+        'status' => '予定',
+        'notes' => $validated['memo'] ? "アポイントメント: {$validated['title']}\n{$validated['memo']}" : "アポイントメント: {$validated['title']}",
+        'appointment_id' => $appointment->id, // アポイントメントとの関連付け
     ]);
 
     return redirect()->route('appointments.index')->with('success', 'アポイントメントが正常に作成されました。');
@@ -41,7 +62,7 @@ $selectedClient = computed(function () {
     if (!$this->selected_client_id) {
         return null;
     }
-    return $this->clients->find($this->selected_client_id);
+    return Client::find($this->selected_client_id);
 });
 
 ?>
@@ -72,20 +93,32 @@ $selectedClient = computed(function () {
             <form wire:submit="save" class="card-content">
                 <div class="form-group">
                     <!-- クライアント選択 -->
-                    <div>
-                        <label for="selected_client_id" class="form-field">
-                            クライアント <span class="form-field-required">*</span>
-                        </label>
-                        <select wire:model.live="selected_client_id" id="selected_client_id" class="form-select">
-                            <option value="">クライアントを選択してください</option>
-                            @foreach ($this->clients as $client)
-                                <option value="{{ $client->id }}">{{ $client->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('selected_client_id')
-                            <p class="form-error">{{ $message }}</p>
-                        @enderror
-                    </div>
+                    @if (!$this->selected_client_id)
+                        <div>
+                            <label for="selected_client_id" class="form-field">
+                                クライアント <span class="form-field-required">*</span>
+                            </label>
+                            <select wire:model.live="selected_client_id" id="selected_client_id" class="form-select">
+                                <option value="">クライアントを選択してください</option>
+                                @foreach ($this->clients as $client)
+                                    <option value="{{ $client->id }}">{{ $client->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('selected_client_id')
+                                <p class="form-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @else
+                        <!-- クライアントが既に選択されている場合 -->
+                        <div>
+                            <label for="client_name" class="form-field">
+                                クライアント <span class="form-field-required">*</span>
+                            </label>
+                            <input type="text" id="client_name" value="{{ $this->selectedClient?->name }}"
+                                class="form-input bg-gray-50 dark:bg-gray-700" readonly>
+                            <input type="hidden" wire:model="selected_client_id">
+                        </div>
+                    @endif
 
                     @if ($this->selectedClient)
                         <!-- 選択されたクライアント情報 -->
@@ -152,6 +185,22 @@ $selectedClient = computed(function () {
                             <input type="text" wire:model.live="title" id="title" placeholder="例: 新商品のご提案"
                                 class="form-input">
                             @error('title')
+                                <p class="form-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- 訪問種別 -->
+                        <div>
+                            <label for="visit_type" class="form-field">
+                                訪問種別 <span class="form-field-required">*</span>
+                            </label>
+                            <select wire:model.live="visit_type" id="visit_type" class="form-select">
+                                <option value="訪問">訪問</option>
+                                <option value="電話">電話</option>
+                                <option value="オンライン会議">オンライン会議</option>
+                                <option value="その他">その他</option>
+                            </select>
+                            @error('visit_type')
                                 <p class="form-error">{{ $message }}</p>
                             @enderror
                         </div>

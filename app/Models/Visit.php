@@ -12,9 +12,20 @@ class Visit extends Model
     use SoftDeletes;
     use HasFactory;
 
+    protected static function booted()
+    {
+        static::updated(function ($visit) {
+            // ステータスが「完了」に変更された場合、関連するアポイントメントを削除
+            if ($visit->isDirty('status') && $visit->status === '完了' && $visit->appointment_id) {
+                $visit->appointment()->delete();
+            }
+        });
+    }
+
     protected $fillable = [
         'client_id',
         'user_id',
+        'appointment_id',
         'visited_at',
         'latitude',
         'longitude',
@@ -41,5 +52,13 @@ class Visit extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * 関連するアポイントメントを取得
+     */
+    public function appointment(): BelongsTo
+    {
+        return $this->belongsTo(Appointment::class);
     }
 }

@@ -11,6 +11,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/clients/{clientId}/visits/create', 'visits.create')->name('visits.create');  // 訪問記録作成ルートを追加
     Volt::route('/appointments', 'appointments.index')->name('appointments.index');  // アポイントメント一覧ルートを追加
     Volt::route('/appointments/create', 'appointments.create')->name('appointments.create');  // アポイントメント作成ルートを追加
+    Volt::route('/appointments/{appointmentId}/edit', 'appointments.edit')->name('appointments.edit');  // アポイントメント編集ルートを追加
 
     Route::redirect('settings', 'settings/profile');
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');

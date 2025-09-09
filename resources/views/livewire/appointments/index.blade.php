@@ -122,7 +122,8 @@ $setFilter = function ($filter) {
                                     class="client-action-link">
                                     クライアント詳細
                                 </a>
-                                <a href="#" class="client-action-link-green">
+                                <a href="{{ route('appointments.edit', $appointment->id) }}"
+                                    class="client-action-link-green">
                                     編集
                                 </a>
                             </div>

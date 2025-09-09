@@ -28,7 +28,7 @@ class VisitSeeder extends Seeder
                     'visited_at' => Carbon::now()->subMonths($i)->addDays(rand(-5, 5)),
                     'latitude' => rand(0, 1) ? $client->latitude + (rand(-10, 10) / 1000) : null,  // 50%の確率でnull
                     'longitude' => rand(0, 1) ? $client->longitude + (rand(-10, 10) / 1000) : null,  // 50%の確率でnull
-                    'visit_type' => ['訪問', '電話', 'メール', 'オンライン会議', '展示会', 'その他'][rand(0, 5)],
+                    'visit_type' => ['訪問', '電話', 'オンライン会議', 'その他'][rand(0, 3)],
                     'status' => '完了',
                     'notes' => "訪問記録 #{$i}回目。商談実施。",
                 ]);
