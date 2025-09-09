@@ -20,6 +20,8 @@ alwaysApply: true
 | contact_person_name | VARCHAR(255) | YES | - | 担当者名 |
 | email | VARCHAR(255) | YES | - | メールアドレス |
 | notes | TEXT | YES | - | 備考（会社に関する特記事項など） |
+| latitude | DECIMAL(10, 8) | YES | - | 緯度 |
+| longitude | DECIMAL(11, 8) | YES | - | 経度 |
 | created_at | TIMESTAMP | YES | - | 作成日時 |
 | updated_at | TIMESTAMP | YES | - | 更新日時 |
 
@@ -31,6 +33,20 @@ alwaysApply: true
 | user_id | BIGINT UNSIGNED | NO | FK | 訪問を行ったユーザーID（※複数ユーザー利用を想定して追加） |
 | visit_datetime | DATETIME | NO | - | 訪問日時 |
 | memo | TEXT | YES | - | 訪問時のメモ（商談内容など） |
+| created_at | TIMESTAMP | YES | - | 作成日時 |
+| updated_at | TIMESTAMP | YES | - | 更新日時 |
+
+3. appointments テーブル(アポイントメント管理)
+| カラム名 | データ型 | NULL | キー | 説明 |
+|----------|----------|------|------|------|
+| id | BIGINT UNSIGNED | NO | PK | 主キー。アポイントメントを一位に識別するID。 |
+| company_id | BIGINT UNSIGNED | NO | FK | 外部キー（訪問先の会社ID） |
+| user_id | BIGINT UNSIGNED | NO | FK | アポイントメントを登録したユーザーID |
+| title | VARCHAR(255) | NO | - | アポイントメントの件名 (例:「新商品のご提案」) |
+| start_datetime | DATETIME | NO | - | 訪問開始日時 |
+| end_datetime | DATETIME | NO | - | 訪問終了日時 |
+| memo | TEXT | YES | - | 備考・持参物などのメモ |
+| google_calendar_event_id | VARCHAR(255) | YES | - | Googleカレンダー登録後のイベントID（更新・削除用） |
 | created_at | TIMESTAMP | YES | - | 作成日時 |
 | updated_at | TIMESTAMP | YES | - | 更新日時 |
 

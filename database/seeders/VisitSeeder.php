@@ -26,11 +26,11 @@ class VisitSeeder extends Seeder
                     'client_id' => $client->id,
                     'user_id' => $users->random()->id,
                     'visited_at' => Carbon::now()->subMonths($i)->addDays(rand(-5, 5)),
-                    'latitude' => $client->latitude + (rand(-10, 10) / 1000),
-                    'longitude' => $client->longitude + (rand(-10, 10) / 1000),
-                    'visit_type' => ['定期訪問', '商談', '契約', '緊急対応', 'その他'][rand(0, 4)],
+                    'latitude' => rand(0, 1) ? $client->latitude + (rand(-10, 10) / 1000) : null,  // 50%の確率でnull
+                    'longitude' => rand(0, 1) ? $client->longitude + (rand(-10, 10) / 1000) : null,  // 50%の確率でnull
+                    'visit_type' => ['訪問', '電話', 'メール', 'オンライン会議', '展示会', 'その他'][rand(0, 5)],
                     'status' => '完了',
-                    'notes' => "定期訪問 #{$i}回目。商談実施。",
+                    'notes' => "訪問記録 #{$i}回目。商談実施。",
                 ]);
             }
 
@@ -40,11 +40,11 @@ class VisitSeeder extends Seeder
                     'client_id' => $client->id,
                     'user_id' => $users->random()->id,
                     'visited_at' => Carbon::now()->addDays($i * 7),
-                    'latitude' => $client->latitude,
-                    'longitude' => $client->longitude,
-                    'visit_type' => ['定期訪問', '商談', '契約'][rand(0, 2)],
+                    'latitude' => null,  // 予定の訪問は位置情報なし
+                    'longitude' => null,  // 予定の訪問は位置情報なし
+                    'visit_type' => ['訪問', '電話', 'オンライン会議'][rand(0, 2)],
                     'status' => '予定',
-                    'notes' => "次回の定期訪問予定。",
+                    'notes' => "次回の訪問予定。",
                 ]);
             }
         });

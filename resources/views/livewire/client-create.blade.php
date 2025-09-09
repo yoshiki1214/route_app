@@ -98,137 +98,149 @@ $extractFromGoogleMaps = function () {
 ?>
 
 <div>
-    <!-- モーダルトリガーボタン -->
-    <button wire:click="openModal" class="client-button-primary">
+    <!-- 訪問先追加ボタン（URL遷移） -->
+    <a href="{{ route('clients.create') }}" class="client-button-primary">
         <svg class="client-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         訪問先を追加
-    </button>
+    </a>
 
     <!-- モーダル -->
-    <div x-data x-show="$wire.showModal" class="client-modal-overlay" style="display: none;">
-        <div class="client-modal-container">
-            <div class="client-modal-backdrop" aria-hidden="true">
-                <div class="client-modal-backdrop-bg"></div>
-            </div>
+    @if ($showModal)
+        <div x-data="{ show: @entangle('showModal') }" x-show="show" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0" class="client-modal-overlay" @click.self="show = false">
+            <div class="client-modal-container">
+                <div class="client-modal-backdrop" aria-hidden="true">
+                    <div class="client-modal-backdrop-bg"></div>
+                </div>
 
-            <div class="client-modal-dialog">
-                <form wire:submit="save">
-                    <div class="client-modal-header">
-                        <h3 class="client-modal-title">新規訪問先の追加</h3>
+                <div class="client-modal-dialog" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                    <form wire:submit="save">
+                        <div class="client-modal-header">
+                            <h3 class="client-modal-title">新規訪問先の追加</h3>
 
-                        <!-- GoogleマップURL入力 -->
-                        <div class="client-google-maps-section">
-                            <label class="client-google-maps-label">
-                                GoogleマップのURLから情報を取得
-                            </label>
-                            <div class="client-google-maps-input-container">
-                                <input type="text" wire:model="googleMapsUrl" placeholder="GoogleマップのURLを貼り付け"
-                                    class="client-google-maps-input">
-                                <button type="button" wire:click="extractFromGoogleMaps"
-                                    class="client-google-maps-button" wire:loading.attr="disabled"
-                                    wire:loading.class="client-google-maps-button-disabled">
-                                    <span wire:loading.remove>取得</span>
-                                    <span wire:loading>処理中...</span>
-                                </button>
+                            <!-- GoogleマップURL入力 -->
+                            <div class="client-google-maps-section">
+                                <label class="client-google-maps-label">
+                                    GoogleマップのURLから情報を取得
+                                </label>
+                                <div class="client-google-maps-input-container">
+                                    <input type="text" wire:model="googleMapsUrl" placeholder="GoogleマップのURLを貼り付け"
+                                        class="client-google-maps-input">
+                                    <button type="button" wire:click="extractFromGoogleMaps"
+                                        class="client-google-maps-button" wire:loading.attr="disabled"
+                                        wire:loading.class="client-google-maps-button-disabled">
+                                        <span wire:loading.remove>取得</span>
+                                        <span wire:loading>処理中...</span>
+                                    </button>
+                                </div>
+                                <p class="client-google-maps-help">
+                                    GoogleマップのURLを貼り付けると、会社名・住所・電話番号を自動入力します
+                                </p>
                             </div>
-                            <p class="client-google-maps-help">
-                                GoogleマップのURLを貼り付けると、会社名・住所・電話番号を自動入力します
-                            </p>
+
+                            <div class="client-form-group">
+                                <!-- 会社名 -->
+                                <div>
+                                    <label for="name" class="client-form-field">会社名 <span
+                                            class="client-form-field-required">*</span></label>
+                                    <input type="text" wire:model="name" id="name" class="client-form-input">
+                                    @error('name')
+                                        <span class="client-form-error">{{ $message }}</span>
+                                    @enderror
+                                </div>
+
+                                <!-- 住所 -->
+                                <div>
+                                    <label for="address" class="client-form-field">住所 <span
+                                            class="client-form-field-required">*</span></label>
+                                    <input type="text" wire:model="address" id="address" class="client-form-input">
+                                    @error('address')
+                                        <span class="client-form-error">{{ $message }}</span>
+                                    @enderror
+                                </div>
+
+                                <!-- 連絡先情報 -->
+                                <div class="client-form-grid">
+                                    <div>
+                                        <label for="phone" class="client-form-field">電話番号</label>
+                                        <input type="tel" wire:model="phone" id="phone"
+                                            class="client-form-input">
+                                        @error('phone')
+                                            <span class="client-form-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label for="email" class="client-form-field">メールアドレス</label>
+                                        <input type="email" wire:model="email" id="email"
+                                            class="client-form-input">
+                                        @error('email')
+                                            <span class="client-form-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- 担当者情報 -->
+                                <div class="client-form-grid-3">
+                                    <div class="client-form-grid-span-1">
+                                        <label for="contact_person" class="client-form-field">担当者名</label>
+                                        <input type="text" wire:model="contact_person" id="contact_person"
+                                            class="client-form-input">
+                                        @error('contact_person')
+                                            <span class="client-form-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label for="department" class="client-form-field">部署</label>
+                                        <input type="text" wire:model="department" id="department"
+                                            class="client-form-input">
+                                        @error('department')
+                                            <span class="client-form-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label for="position" class="client-form-field">役職</label>
+                                        <input type="text" wire:model="position" id="position"
+                                            class="client-form-input">
+                                        @error('position')
+                                            <span class="client-form-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- 備考 -->
+                                <div>
+                                    <label for="notes" class="client-form-field">備考</label>
+                                    <textarea wire:model="notes" id="notes" rows="3" class="client-form-textarea"></textarea>
+                                    @error('notes')
+                                        <span class="client-form-error">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="client-form-group">
-                            <!-- 会社名 -->
-                            <div>
-                                <label for="name" class="client-form-field">会社名 <span
-                                        class="client-form-field-required">*</span></label>
-                                <input type="text" wire:model="name" id="name" class="client-form-input">
-                                @error('name')
-                                    <span class="client-form-error">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <!-- 住所 -->
-                            <div>
-                                <label for="address" class="client-form-field">住所 <span
-                                        class="client-form-field-required">*</span></label>
-                                <input type="text" wire:model="address" id="address" class="client-form-input">
-                                @error('address')
-                                    <span class="client-form-error">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <!-- 連絡先情報 -->
-                            <div class="client-form-grid">
-                                <div>
-                                    <label for="phone" class="client-form-field">電話番号</label>
-                                    <input type="tel" wire:model="phone" id="phone" class="client-form-input">
-                                    @error('phone')
-                                        <span class="client-form-error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div>
-                                    <label for="email" class="client-form-field">メールアドレス</label>
-                                    <input type="email" wire:model="email" id="email" class="client-form-input">
-                                    @error('email')
-                                        <span class="client-form-error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <!-- 担当者情報 -->
-                            <div class="client-form-grid-3">
-                                <div class="client-form-grid-span-1">
-                                    <label for="contact_person" class="client-form-field">担当者名</label>
-                                    <input type="text" wire:model="contact_person" id="contact_person"
-                                        class="client-form-input">
-                                    @error('contact_person')
-                                        <span class="client-form-error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div>
-                                    <label for="department" class="client-form-field">部署</label>
-                                    <input type="text" wire:model="department" id="department"
-                                        class="client-form-input">
-                                    @error('department')
-                                        <span class="client-form-error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-
-                                <div>
-                                    <label for="position" class="client-form-field">役職</label>
-                                    <input type="text" wire:model="position" id="position"
-                                        class="client-form-input">
-                                    @error('position')
-                                        <span class="client-form-error">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <!-- 備考 -->
-                            <div>
-                                <label for="notes" class="client-form-field">備考</label>
-                                <textarea wire:model="notes" id="notes" rows="3" class="client-form-textarea"></textarea>
-                                @error('notes')
-                                    <span class="client-form-error">{{ $message }}</span>
-                                @enderror
-                            </div>
+                        <div class="client-modal-footer">
+                            <button type="submit" class="client-modal-button-primary">
+                                保存
+                            </button>
+                            <button type="button" wire:click="closeModal" class="client-modal-button-secondary">
+                                キャンセル
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="client-modal-footer">
-                        <button type="submit" class="client-modal-button-primary">
-                            保存
-                        </button>
-                        <button type="button" wire:click="closeModal" class="client-modal-button-secondary">
-                            キャンセル
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
+    @endif
 </div>

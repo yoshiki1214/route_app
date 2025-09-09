@@ -11,7 +11,7 @@ state([
         },
     ])->get(),
     'search' => '',
-    'sortField' => 'name',
+    'sortField' => 'last_visit_desc',
     'sortDirection' => 'asc',
     'currentLocation' => [
         'latitude' => null,
@@ -128,13 +128,6 @@ $filteredClients = computed(function () {
         <input type="text" wire:model.live="search" placeholder="会社名で検索..." class="client-search-input">
 
         <div class="flex flex-wrap gap-2">
-            <button wire:click="sortBy('name')" @class([
-                'client-sort-button',
-                'client-sort-button-active' => $sortField === 'name',
-                'client-sort-button-inactive' => $sortField !== 'name',
-            ])>
-                会社名{{ $sortField === 'name' ? ($sortDirection === 'asc' ? '↑' : '↓') : '' }}
-            </button>
             <button wire:click="$set('sortField', 'last_visit_desc')" @class([
                 'client-sort-button',
                 'client-sort-button-active' => $sortField === 'last_visit_desc',
@@ -229,8 +222,8 @@ $filteredClients = computed(function () {
                 </div>
 
                 <div class="client-card-actions">
-                    <a href="#" class="client-action-link">詳細</a>
-                    <a href="#" class="client-action-link-green">訪問記録</a>
+                    <a href="{{ route('clients.detail', $client->id) }}" class="client-action-link">詳細</a>
+                    <a href="{{ route('visits.create', $client->id) }}" class="client-action-link-green">訪問記録</a>
                 </div>
             </div>
         @endforeach
@@ -333,8 +326,10 @@ $filteredClients = computed(function () {
                                     @endif
                                 </td>
                                 <td class="client-table-cell client-table-cell-right">
-                                    <a href="#" class="client-action-link">詳細</a>
-                                    <a href="#" class="client-action-link-green">訪問記録</a>
+                                    <a href="{{ route('clients.detail', $client->id) }}"
+                                        class="client-action-link">詳細</a>
+                                    <a href="{{ route('visits.create', $client->id) }}"
+                                        class="client-action-link-green">訪問記録</a>
                                 </td>
                             </tr>
                         @endforeach

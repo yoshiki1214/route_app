@@ -31,8 +31,9 @@ $refreshClients = function () {
                     ])>
                         訪問先一覧
                     </button>
+                    <!-- ルート作成はデスクトップのみ表示 -->
                     <button wire:click="$set('activeTab', 'route')" @class([
-                        'px-4 py-2 rounded',
+                        'px-4 py-2 rounded hidden lg:block',
                         'bg-blue-600 text-white' => $activeTab === 'route',
                         'bg-gray-200 text-gray-700 hover:bg-gray-300' => $activeTab !== 'route',
                     ])>
