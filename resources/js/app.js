@@ -98,13 +98,17 @@ window.getPlaceIdFromCoordinates = function (lat, lng, callback) {
         }
       }
 
+      // 住所を都道府県から始まる形式に変換
+      const formattedAddress = window.formatAddressFromPrefecture(cleanAddress);
+
       console.log('Extracted place name:', extractedName);
-      console.log('Clean address:', cleanAddress);
+      console.log('Original address:', cleanAddress);
+      console.log('Formatted address (from prefecture):', formattedAddress);
 
       // フォールバック: 新しいPlaces APIが利用できない場合、Geocodingの結果を使用
       callback({
         place_id: placeId,
-        formatted_address: cleanAddress,
+        formatted_address: formattedAddress,
         name: extractedName || '',
         lat: lat,
         lng: lng,
@@ -169,6 +173,57 @@ window.getPlaceDetails = function (placeId, callback) {
     console.error('New Places API not available');
     callback(null);
   }
+};
+
+// 住所を都道府県から始まる形式に変換する関数
+window.formatAddressFromPrefecture = function (formattedAddress) {
+  if (!formattedAddress) return '';
+
+  // 郵便番号を除去（〒で始まる部分）
+  let cleanAddress = formattedAddress.replace(/^〒\d{3}-\d{4}\s*/, '');
+
+  // 都道府県から始まるように調整
+  // 日本の都道府県リスト
+  const prefectures = [
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+    '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+    '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+    '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+  ];
+
+  // 住所が都道府県から始まっているかチェック
+  let startsWithPrefecture = false;
+  for (let prefecture of prefectures) {
+    if (cleanAddress.startsWith(prefecture)) {
+      startsWithPrefecture = true;
+      break;
+    }
+  }
+
+  // 都道府県から始まっていない場合、都道府県を探して先頭に移動
+  if (!startsWithPrefecture) {
+    for (let prefecture of prefectures) {
+      const prefectureIndex = cleanAddress.indexOf(prefecture);
+      if (prefectureIndex > 0) {
+        // 都道府県が見つかった場合、都道府県から始まるように再構築
+        const beforePrefecture = cleanAddress.substring(0, prefectureIndex).trim();
+        const afterPrefecture = cleanAddress.substring(prefectureIndex).trim();
+
+        // 都道府県の前の部分が店舗名の可能性がある場合は除去
+        if (beforePrefecture && !/^\d/.test(beforePrefecture)) {
+          cleanAddress = afterPrefecture;
+        } else {
+          cleanAddress = afterPrefecture;
+        }
+        break;
+      }
+    }
+  }
+
+  return cleanAddress.trim();
 };
 
 // URLから座標を抽出する関数

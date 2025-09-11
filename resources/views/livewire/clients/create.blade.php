@@ -52,6 +52,49 @@ $save = function () {
         ->with('success', '訪問先が正常に追加されました。');
 };
 
+$formatAddressFromPrefecture = function ($address) {
+    if (empty($address)) {
+        return '';
+    }
+
+    // 郵便番号を除去（〒で始まる部分）
+    $cleanAddress = preg_replace('/^〒\d{3}-\d{4}\s*/', '', $address);
+
+    // 日本の都道府県リスト
+    $prefectures = ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'];
+
+    // 住所が都道府県から始まっているかチェック
+    $startsWithPrefecture = false;
+    foreach ($prefectures as $prefecture) {
+        if (str_starts_with($cleanAddress, $prefecture)) {
+            $startsWithPrefecture = true;
+            break;
+        }
+    }
+
+    // 都道府県から始まっていない場合、都道府県を探して先頭に移動
+    if (!$startsWithPrefecture) {
+        foreach ($prefectures as $prefecture) {
+            $prefectureIndex = strpos($cleanAddress, $prefecture);
+            if ($prefectureIndex > 0) {
+                // 都道府県が見つかった場合、都道府県から始まるように再構築
+                $beforePrefecture = trim(substr($cleanAddress, 0, $prefectureIndex));
+                $afterPrefecture = trim(substr($cleanAddress, $prefectureIndex));
+
+                // 都道府県の前の部分が店舗名の可能性がある場合は除去
+                if ($beforePrefecture && !preg_match('/^\d/', $beforePrefecture)) {
+                    $cleanAddress = $afterPrefecture;
+                } else {
+                    $cleanAddress = $afterPrefecture;
+                }
+                break;
+            }
+        }
+    }
+
+    return trim($cleanAddress);
+};
+
 $expandShortUrl = function ($url) {
     try {
         $context = stream_context_create([
@@ -130,18 +173,18 @@ $extractFromGoogleMaps = function () {
                 if (preg_match('/^\d/', $potentialName)) {
                     // 最初の部分が住所の場合
                     $this->name = '';
-                    $this->address = $potentialName . ', ' . $potentialAddress;
+                    $this->address = $this->formatAddressFromPrefecture($potentialName . ', ' . $potentialAddress);
                 } else {
                     // 最初の部分が店舗名の場合
                     $this->name = $potentialName;
-                    $this->address = $potentialAddress;
+                    $this->address = $this->formatAddressFromPrefecture($potentialAddress);
                 }
             } else {
                 $singlePart = str_replace('+', ' ', $placeInfo);
                 // 数字で始まる場合は住所、そうでなければ店舗名
                 if (preg_match('/^\d/', $singlePart)) {
                     $this->name = '';
-                    $this->address = $singlePart;
+                    $this->address = $this->formatAddressFromPrefecture($singlePart);
                 } else {
                     $this->name = $singlePart;
                     $this->address = '';
@@ -164,7 +207,7 @@ $extractFromGoogleMaps = function () {
                 }
             }
 
-            $this->address = str_replace('+', ' ', $searchTerm);
+            $this->address = $this->formatAddressFromPrefecture(str_replace('+', ' ', $searchTerm));
             \Log::info('maps/search形式で解析成功: address=' . $this->address);
             $extracted = true;
         }
@@ -189,7 +232,7 @@ $extractFromGoogleMaps = function () {
         // 6. 一般的な検索クエリ形式
         elseif (preg_match('/[?&]q=([^&]+)/', $url, $matches)) {
             $searchTerm = urldecode($matches[1]);
-            $this->address = str_replace('+', ' ', $searchTerm);
+            $this->address = $this->formatAddressFromPrefecture(str_replace('+', ' ', $searchTerm));
             $extracted = true;
         }
         // 7. maps.app.goo.gl形式の解析
