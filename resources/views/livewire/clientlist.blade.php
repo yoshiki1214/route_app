@@ -159,7 +159,10 @@ $filteredClients = computed(function () {
                 <div class="client-card-header">
                     <div>
                         <div class="client-card-info">{{ $client->name }}</div>
-                        <div class="client-card-address">{{ $client->address }}</div>
+                        <a href="https://maps.google.com/maps?q={{ urlencode($client->address) }}" target="_blank"
+                            class="client-card-address text-blue-600 hover:text-blue-800 underline">
+                            {{ $client->address }}
+                        </a>
                         @if ($sortField === 'distance' && $this->currentLocation['latitude'])
                             <div class="client-card-distance">
                                 約{{ round(
@@ -264,7 +267,11 @@ $filteredClients = computed(function () {
                             <tr>
                                 <td class="client-table-cell">
                                     <div class="client-table-company-name">{{ $client->name }}</div>
-                                    <div class="client-table-company-address">{{ $client->address }}</div>
+                                    <a href="https://maps.google.com/maps?q={{ urlencode($client->address) }}"
+                                        target="_blank"
+                                        class="client-table-company-address text-blue-600 hover:text-blue-800 underline">
+                                        {{ $client->address }}
+                                    </a>
                                 </td>
                                 <td class="client-table-cell client-table-cell-nowrap">
                                     @php

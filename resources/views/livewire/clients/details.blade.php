@@ -55,7 +55,10 @@ $deleteVisit = function ($visitId) {
                     <div class="flex items-center justify-between">
                         <div>
                             <h1 class="text-2xl font-semibold text-gray-900">{{ $this->client->name }}</h1>
-                            <p class="text-sm text-gray-500">{{ $this->client->address }}</p>
+                            <a href="https://maps.google.com/maps?q={{ urlencode($this->client->address) }}"
+                                target="_blank" class="text-sm text-blue-600 hover:text-blue-800 underline">
+                                {{ $this->client->address }}
+                            </a>
                         </div>
                         <div class="flex space-x-3">
                             <a href="{{ route('appointments.create', ['client_id' => $this->client->id]) }}"
@@ -138,6 +141,7 @@ $deleteVisit = function ($visitId) {
                             <p class="mt-2 text-sm text-gray-900">{{ $this->client->notes }}</p>
                         </div>
                     @endif
+
                 </div>
 
                 <!-- タブナビゲーション -->

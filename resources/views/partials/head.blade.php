@@ -12,3 +12,9 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+
+@if (config('services.google_maps.api_key'))
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&libraries=places&callback=initGoogleMaps">
+    </script>
+@endif

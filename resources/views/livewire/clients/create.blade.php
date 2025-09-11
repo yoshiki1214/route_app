@@ -33,9 +33,14 @@ rules([
 $save = function () {
     $validated = $this->validate();
 
-    // 住所から緯度経度を取得（実際のプロジェクトではGoogleマップAPIなどを使用）
-    $validated['latitude'] = 35.6812362; // 仮の値
-    $validated['longitude'] = 139.7671248; // 仮の値
+    // 緯度経度が設定されていない場合は、住所から取得
+    if (!$this->latitude || !$this->longitude) {
+        $validated['latitude'] = null;
+        $validated['longitude'] = null;
+    } else {
+        $validated['latitude'] = $this->latitude;
+        $validated['longitude'] = $this->longitude;
+    }
 
     $client = Client::create($validated);
 
@@ -53,7 +58,11 @@ $extractFromGoogleMaps = function () {
     try {
         $url = $this->googleMapsUrl;
 
-        // Google MapsのURLから情報を抽出
+        if (empty($url)) {
+            return;
+        }
+
+        // 新しいGoogleマップURL形式 (maps/place/...) の解析
         if (preg_match('/maps\/place\/([^\/]+)\/(@[^\/]+)/', $url, $matches)) {
             // デコードして店舗名と住所を分離
             $placeInfo = urldecode($matches[1]);
@@ -74,18 +83,64 @@ $extractFromGoogleMaps = function () {
             } else {
                 $this->name = str_replace('+', ' ', $placeInfo);
             }
+        }
+        // 新しいGoogleマップURL形式 (search/...) の解析
+        elseif (preg_match('/maps\/search\/([^\/]+)\/(@[^\/]+)/', $url, $matches)) {
+            $placeInfo = urldecode($matches[1]);
+            $coordinates = str_replace('@', '', $matches[2]);
 
-            // 電話番号の抽出（URLに含まれている場合）
-            if (preg_match('/tel:([^\/\s]+)/', $url, $telMatches)) {
-                $this->phone = $telMatches[1];
+            // 座標情報を分解
+            $coords = explode(',', $coordinates);
+            if (count($coords) >= 2) {
+                $this->latitude = (float) $coords[0];
+                $this->longitude = (float) $coords[1];
             }
+
+            $this->name = str_replace('+', ' ', $placeInfo);
+        }
+        // 座標のみのURL形式 (@lat,lng,zoom)
+        elseif (preg_match('/@([0-9.-]+),([0-9.-]+),([0-9.]+)z/', $url, $matches)) {
+            $this->latitude = (float) $matches[1];
+            $this->longitude = (float) $matches[2];
+        }
+        // 住所検索形式
+        elseif (preg_match('/maps\/search\/([^\/\?]+)/', $url, $matches)) {
+            $searchTerm = urldecode($matches[1]);
+            $this->address = str_replace('+', ' ', $searchTerm);
+        }
+
+        // 電話番号の抽出（URLに含まれている場合）
+        if (preg_match('/tel:([^\/\s]+)/', $url, $telMatches)) {
+            $this->phone = $telMatches[1];
+        }
+
+        // 住所が設定されているが緯度経度が設定されていない場合、住所から取得を試行
+        if ($this->address && (!$this->latitude || !$this->longitude)) {
+            $this->dispatch('get-lat-lng', address: $this->address);
         }
     } catch (\Exception $e) {
         // エラー処理
+        session()->flash('error', 'GoogleマップURLの解析に失敗しました: ' . $e->getMessage());
     } finally {
         $this->isProcessing = false;
         $this->googleMapsUrl = ''; // URLをクリア
     }
+};
+
+$getLatLngFromAddress = function () {
+    if (!$this->address) {
+        return;
+    }
+
+    $this->dispatch('get-lat-lng', address: $this->address);
+};
+
+$getPlaceDetailsFromUrl = function () {
+    if (!$this->googleMapsUrl) {
+        return;
+    }
+
+    $this->dispatch('get-place-details', url: $this->googleMapsUrl);
 };
 
 ?>
@@ -120,18 +175,24 @@ $extractFromGoogleMaps = function () {
                             GoogleマップのURL
                         </label>
                         <div class="flex space-x-3">
-                            <input type="text" wire:model.live="googleMapsUrl" id="googleMapsUrl"
+                            <input type="text" wire:model.blur="googleMapsUrl" id="googleMapsUrl"
                                 placeholder="GoogleマップのURLを貼り付け"
                                 class="flex-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             <button type="button" wire:click="extractFromGoogleMaps" wire:loading.attr="disabled"
                                 wire:loading.class="opacity-50"
                                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
-                                <span wire:loading.remove>取得</span>
+                                <span wire:loading.remove>基本取得</span>
+                                <span wire:loading>処理中...</span>
+                            </button>
+                            <button type="button" wire:click="getPlaceDetailsFromUrl" wire:loading.attr="disabled"
+                                wire:loading.class="opacity-50"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+                                <span wire:loading.remove>詳細取得</span>
                                 <span wire:loading>処理中...</span>
                             </button>
                         </div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            GoogleマップのURLを貼り付けると、会社名・住所・電話番号を自動入力します
+                            GoogleマップのURLを貼り付けて、「基本取得」でURL解析、「詳細取得」でGoogleマップAPIを使用して詳細情報を取得します
                         </p>
                     </div>
                 </div>
@@ -145,7 +206,7 @@ $extractFromGoogleMaps = function () {
                         <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             会社名 <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" wire:model.live="name" id="name"
+                        <input type="text" wire:model.blur="name" id="name"
                             class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         @error('name')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -157,11 +218,12 @@ $extractFromGoogleMaps = function () {
                         <label for="address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             住所 <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" wire:model.live="address" id="address"
+                        <input type="text" wire:model.blur="address" id="address"
                             class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         @error('address')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
+
                     </div>
 
                     <!-- 連絡先情報 -->
@@ -169,7 +231,7 @@ $extractFromGoogleMaps = function () {
                         <div>
                             <label for="phone"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">電話番号</label>
-                            <input type="tel" wire:model.live="phone" id="phone"
+                            <input type="tel" wire:model.blur="phone" id="phone"
                                 class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             @error('phone')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -179,7 +241,7 @@ $extractFromGoogleMaps = function () {
                         <div>
                             <label for="email"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">メールアドレス</label>
-                            <input type="email" wire:model.live="email" id="email"
+                            <input type="email" wire:model.blur="email" id="email"
                                 class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             @error('email')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -196,7 +258,7 @@ $extractFromGoogleMaps = function () {
                         <div>
                             <label for="contact_person"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">担当者名</label>
-                            <input type="text" wire:model.live="contact_person" id="contact_person"
+                            <input type="text" wire:model.blur="contact_person" id="contact_person"
                                 class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             @error('contact_person')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -206,7 +268,7 @@ $extractFromGoogleMaps = function () {
                         <div>
                             <label for="department"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">部署</label>
-                            <input type="text" wire:model.live="department" id="department"
+                            <input type="text" wire:model.blur="department" id="department"
                                 class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             @error('department')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -216,7 +278,7 @@ $extractFromGoogleMaps = function () {
                         <div>
                             <label for="position"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">役職</label>
-                            <input type="text" wire:model.live="position" id="position"
+                            <input type="text" wire:model.blur="position" id="position"
                                 class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             @error('position')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -228,12 +290,13 @@ $extractFromGoogleMaps = function () {
                 <!-- 備考 -->
                 <div>
                     <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">備考</label>
-                    <textarea wire:model.live="notes" id="notes" rows="4"
+                    <textarea wire:model.blur="notes" id="notes" rows="4"
                         class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
                     @error('notes')
                         <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
+
 
                 <!-- ボタン -->
                 <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -251,3 +314,84 @@ $extractFromGoogleMaps = function () {
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('livewire:init', function() {
+        // スクロール位置保持機能は共通のscrollPositionManagerを使用
+
+        // Google Maps APIが読み込まれた時の処理
+        window.addEventListener('googleMapsReady', function() {
+            console.log('Google Maps ready in client create');
+        });
+
+        // GoogleマップURLから詳細情報を取得するイベントリスナー
+        Livewire.on('get-place-details', function(data) {
+            const url = data.url;
+            if (url && window.googleMapsReady) {
+                extractPlaceDetailsFromUrl(url);
+            }
+        });
+
+        // URLからPlace IDを抽出して詳細情報を取得する関数
+        function extractPlaceDetailsFromUrl(url) {
+            try {
+                // Place IDを抽出
+                let placeId = null;
+
+                // 新しいURL形式からPlace IDを抽出
+                if (url.includes('/place/')) {
+                    const match = url.match(/\/place\/([^\/]+)\//);
+                    if (match) {
+                        placeId = match[1];
+                    }
+                }
+
+                if (placeId) {
+                    // Places APIを使用して詳細情報を取得
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    service.getDetails({
+                        placeId: placeId,
+                        fields: ['name', 'formatted_address', 'formatted_phone_number', 'geometry',
+                            'website'
+                        ]
+                    }, function(place, status) {
+                        if (status === google.maps.places.PlacesServiceStatus.OK) {
+                            // 取得した情報をLivewireに送信
+                            Livewire.dispatch('set-place-details', {
+                                name: place.name || '',
+                                address: place.formatted_address || '',
+                                phone: place.formatted_phone_number || '',
+                                lat: place.geometry.location.lat(),
+                                lng: place.geometry.location.lng(),
+                                website: place.website || ''
+                            });
+                        } else {
+                            console.error('Place details request failed:', status);
+                            // フォールバック: URL解析を試行
+                            @this.call('extractFromGoogleMaps');
+                        }
+                    });
+                } else {
+                    // Place IDが見つからない場合はURL解析を試行
+                    @this.call('extractFromGoogleMaps');
+                }
+            } catch (error) {
+                console.error('Error extracting place details:', error);
+                // エラー時はURL解析を試行
+                @this.call('extractFromGoogleMaps');
+            }
+        }
+
+        // 詳細情報が設定された時のイベントリスナー
+        Livewire.on('set-place-details', function(data) {
+            @this.set('name', data.name);
+            @this.set('address', data.address);
+            @this.set('phone', data.phone);
+            @this.set('latitude', data.lat);
+            @this.set('longitude', data.lng);
+            if (data.website) {
+                @this.set('email', data.website);
+            }
+        });
+    });
+</script>
