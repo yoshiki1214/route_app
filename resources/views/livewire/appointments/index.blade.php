@@ -5,7 +5,13 @@ use App\Models\Appointment;
 use Carbon\Carbon;
 
 state([
-    'appointments' => fn() => Appointment::with('client')->get(),
+    'appointments' => fn() => Appointment::with(['client', 'visits'])
+        ->get()
+        ->filter(function ($appointment) {
+            // ステータスが「完了」の訪問記録に関連するアポイントメントは非表示
+            $completedVisit = $appointment->visits()->where('status', '完了')->exists();
+            return !$completedVisit;
+        }),
     'filter' => 'all', // all, today, upcoming, past
 ]);
 
@@ -28,6 +34,21 @@ $filteredAppointments = computed(function () {
 
 $setFilter = function ($filter) {
     $this->filter = $filter;
+};
+
+$deleteAppointment = function ($appointmentId) {
+    $appointment = Appointment::find($appointmentId);
+    if ($appointment) {
+        $appointment->delete();
+        $this->appointments = Appointment::with(['client', 'visits'])
+            ->get()
+            ->filter(function ($appointment) {
+                // ステータスが「完了」の訪問記録に関連するアポイントメントは非表示
+                $completedVisit = $appointment->visits()->where('status', '完了')->exists();
+                return !$completedVisit;
+            });
+        session()->flash('success', 'アポイントメントが削除されました。');
+    }
 };
 
 ?>
@@ -126,6 +147,10 @@ $setFilter = function ($filter) {
                                     class="client-action-link-green">
                                     編集
                                 </a>
+                                <button wire:click="deleteAppointment({{ $appointment->id }})"
+                                    wire:confirm="このアポイントメントを削除しますか？関連する訪問履歴も削除されます。" class="client-action-link-red">
+                                    削除
+                                </button>
                             </div>
                         </div>
                     </div>

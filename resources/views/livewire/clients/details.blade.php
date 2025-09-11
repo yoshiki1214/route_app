@@ -34,6 +34,16 @@ $setActiveTab = function ($tab) {
     $this->activeTab = $tab;
 };
 
+$deleteVisit = function ($visitId) {
+    $visit = Visit::find($visitId);
+    if ($visit) {
+        $visit->delete();
+        // 訪問履歴を再取得
+        $this->visits = $this->client->visits()->latest('visited_at')->get();
+        session()->flash('success', '訪問記録が削除されました。');
+    }
+};
+
 ?>
 
 <div class="min-h-screen bg-gray-100">
@@ -171,15 +181,26 @@ $setActiveTab = function ($tab) {
                                                     <p class="mt-2 text-sm text-gray-700">{{ $visit->notes }}</p>
                                                 @endif
                                             </div>
-                                            <span @class([
-                                                'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                                                'bg-green-100 text-green-800' => $visit->status === '完了',
-                                                'bg-yellow-100 text-yellow-800' => $visit->status === '予定',
-                                                'bg-red-100 text-red-800' => $visit->status === 'キャンセル',
-                                                'bg-gray-100 text-gray-800' => $visit->status === '延期',
-                                            ])>
-                                                {{ $visit->status }}
-                                            </span>
+                                            <div class="flex items-center space-x-2">
+                                                <span @class([
+                                                    'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                                    'bg-green-100 text-green-800' => $visit->status === '完了',
+                                                    'bg-yellow-100 text-yellow-800' => $visit->status === '予定',
+                                                    'bg-red-100 text-red-800' => $visit->status === 'キャンセル',
+                                                    'bg-gray-100 text-gray-800' => $visit->status === '延期',
+                                                ])>
+                                                    {{ $visit->status }}
+                                                </span>
+                                                <a href="{{ route('visits.edit', $visit->id) }}"
+                                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                                    編集
+                                                </a>
+                                                <button wire:click="deleteVisit({{ $visit->id }})"
+                                                    wire:confirm="この訪問記録を削除しますか？"
+                                                    class="text-red-600 hover:text-red-800 text-sm">
+                                                    削除
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 @empty

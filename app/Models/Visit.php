@@ -14,9 +14,9 @@ class Visit extends Model
 
     protected static function booted()
     {
-        static::updated(function ($visit) {
-            // ステータスが「完了」に変更された場合、関連するアポイントメントを削除
-            if ($visit->isDirty('status') && $visit->status === '完了' && $visit->appointment_id) {
+        static::deleting(function ($visit) {
+            // 訪問記録が削除される場合、関連するアポイントメントも削除
+            if ($visit->appointment_id) {
                 $visit->appointment()->delete();
             }
         });

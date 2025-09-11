@@ -9,6 +9,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/clients/create', 'clients.create')->name('clients.create');  // クライアント作成ルートを追加
     Volt::route('/clients/{clientId}', 'clients.details')->name('clients.detail');  // クライアント詳細ルートを追加
     Volt::route('/clients/{clientId}/visits/create', 'visits.create')->name('visits.create');  // 訪問記録作成ルートを追加
+    Volt::route('/visits/{visitId}/edit', 'visits.edit')->name('visits.edit');  // 訪問記録編集ルートを追加
     Volt::route('/appointments', 'appointments.index')->name('appointments.index');  // アポイントメント一覧ルートを追加
     Volt::route('/appointments/create', 'appointments.create')->name('appointments.create');  // アポイントメント作成ルートを追加
     Volt::route('/appointments/{appointmentId}/edit', 'appointments.edit')->name('appointments.edit');  // アポイントメント編集ルートを追加

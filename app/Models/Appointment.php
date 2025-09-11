@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appointment extends Model
 {
+    protected static function booted()
+    {
+        static::deleting(function ($appointment) {
+            // アポイントメント削除時に、関連する訪問履歴も削除
+            $appointment->visits()->delete();
+        });
+    }
+
     protected $fillable = [
         'client_id',
         'user_id',
