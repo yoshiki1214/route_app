@@ -52,6 +52,30 @@ $save = function () {
         ->with('success', '訪問先が正常に追加されました。');
 };
 
+$expandShortUrl = function ($url) {
+    try {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'HEAD',
+                'follow_location' => false,
+                'timeout' => 10,
+                'user_agent' => 'Mozilla/5.0 (compatible; Laravel App)',
+            ],
+        ]);
+
+        $headers = get_headers($url, 1, $context);
+
+        if ($headers && isset($headers['Location'])) {
+            $location = is_array($headers['Location']) ? end($headers['Location']) : $headers['Location'];
+            return $location;
+        }
+
+        return null;
+    } catch (\Exception $e) {
+        return null;
+    }
+};
+
 $extractFromGoogleMaps = function () {
     $this->isProcessing = true;
 
@@ -59,67 +83,150 @@ $extractFromGoogleMaps = function () {
         $url = $this->googleMapsUrl;
 
         if (empty($url)) {
+            session()->flash('error', 'URLが入力されていません。');
             return;
         }
 
-        // 新しいGoogleマップURL形式 (maps/place/...) の解析
-        if (preg_match('/maps\/place\/([^\/]+)\/(@[^\/]+)/', $url, $matches)) {
-            // デコードして店舗名と住所を分離
-            $placeInfo = urldecode($matches[1]);
-            $coordinates = str_replace('@', '', $matches[2]);
+        // URLの正規化
+        $url = trim($url);
 
-            // 座標情報を分解
-            $coords = explode(',', $coordinates);
-            if (count($coords) >= 2) {
-                $this->latitude = (float) $coords[0];
-                $this->longitude = (float) $coords[1];
-            }
-
-            // 店舗名と住所を分離（最後の "+" または " " で分割）
-            $parts = preg_split('/\+|\s+/', $placeInfo, 2);
-            if (count($parts) >= 2) {
-                $this->name = str_replace('+', ' ', $parts[0]);
-                $this->address = str_replace('+', ' ', $parts[1]);
+        // 短縮URLの展開を試行
+        if (strpos($url, 'goo.gl') !== false || strpos($url, 'bit.ly') !== false || strpos($url, 'maps.app.goo.gl') !== false) {
+            $expandedUrl = $this->expandShortUrl($url);
+            if ($expandedUrl) {
+                $url = $expandedUrl;
+                session()->flash('info', '短縮URLを展開しました: ' . substr($url, 0, 100) . '...');
             } else {
-                $this->name = str_replace('+', ' ', $placeInfo);
+                session()->flash('warning', '短縮URLの展開に失敗しました。元のURLで処理を続行します。');
             }
         }
-        // 新しいGoogleマップURL形式 (search/...) の解析
-        elseif (preg_match('/maps\/search\/([^\/]+)\/(@[^\/]+)/', $url, $matches)) {
+
+        $extracted = false;
+
+        // デバッグ: 解析対象のURLをログ出力
+        \Log::info('Google Maps URL解析開始: ' . $url);
+
+        // 1. 新しいGoogleマップURL形式 (maps/place/...) の解析
+        if (preg_match('/maps\/place\/([^\/\?]+)(?:\/(@[^\/\?]+))?/', $url, $matches)) {
             $placeInfo = urldecode($matches[1]);
-            $coordinates = str_replace('@', '', $matches[2]);
 
-            // 座標情報を分解
-            $coords = explode(',', $coordinates);
-            if (count($coords) >= 2) {
-                $this->latitude = (float) $coords[0];
-                $this->longitude = (float) $coords[1];
+            // 座標情報がある場合
+            if (isset($matches[2])) {
+                $coordinates = str_replace('@', '', $matches[2]);
+                $coords = explode(',', $coordinates);
+                if (count($coords) >= 2) {
+                    $this->latitude = (float) $coords[0];
+                    $this->longitude = (float) $coords[1];
+                }
             }
 
-            $this->name = str_replace('+', ' ', $placeInfo);
+            // 店舗名と住所を分離
+            $parts = preg_split('/\+/', $placeInfo, 2);
+            if (count($parts) >= 2) {
+                $potentialName = str_replace('+', ' ', $parts[0]);
+                $potentialAddress = str_replace('+', ' ', $parts[1]);
+
+                // 最初の部分が数字で始まる場合は住所、そうでなければ店舗名
+                if (preg_match('/^\d/', $potentialName)) {
+                    // 最初の部分が住所の場合
+                    $this->name = '';
+                    $this->address = $potentialName . ', ' . $potentialAddress;
+                } else {
+                    // 最初の部分が店舗名の場合
+                    $this->name = $potentialName;
+                    $this->address = $potentialAddress;
+                }
+            } else {
+                $singlePart = str_replace('+', ' ', $placeInfo);
+                // 数字で始まる場合は住所、そうでなければ店舗名
+                if (preg_match('/^\d/', $singlePart)) {
+                    $this->name = '';
+                    $this->address = $singlePart;
+                } else {
+                    $this->name = $singlePart;
+                    $this->address = '';
+                }
+            }
+            \Log::info('maps/place形式で解析成功: name=' . $this->name . ', address=' . $this->address);
+            $extracted = true;
         }
-        // 座標のみのURL形式 (@lat,lng,zoom)
+        // 2. 検索形式 (maps/search/...)
+        elseif (preg_match('/maps\/search\/([^\/\?]+)(?:\/(@[^\/\?]+))?/', $url, $matches)) {
+            $searchTerm = urldecode($matches[1]);
+
+            // 座標情報がある場合
+            if (isset($matches[2])) {
+                $coordinates = str_replace('@', '', $matches[2]);
+                $coords = explode(',', $coordinates);
+                if (count($coords) >= 2) {
+                    $this->latitude = (float) $coords[0];
+                    $this->longitude = (float) $coords[1];
+                }
+            }
+
+            $this->address = str_replace('+', ' ', $searchTerm);
+            \Log::info('maps/search形式で解析成功: address=' . $this->address);
+            $extracted = true;
+        }
+        // 3. 座標のみのURL形式 (@lat,lng,zoom)
         elseif (preg_match('/@([0-9.-]+),([0-9.-]+),([0-9.]+)z/', $url, $matches)) {
             $this->latitude = (float) $matches[1];
             $this->longitude = (float) $matches[2];
+            $extracted = true;
         }
-        // 住所検索形式
+        // 4. 座標のみのURL形式 (@lat,lng)
+        elseif (preg_match('/@([0-9.-]+),([0-9.-]+)/', $url, $matches)) {
+            $this->latitude = (float) $matches[1];
+            $this->longitude = (float) $matches[2];
+            $extracted = true;
+        }
+        // 5. 住所検索形式 (maps/search/...)
         elseif (preg_match('/maps\/search\/([^\/\?]+)/', $url, $matches)) {
             $searchTerm = urldecode($matches[1]);
             $this->address = str_replace('+', ' ', $searchTerm);
+            $extracted = true;
+        }
+        // 6. 一般的な検索クエリ形式
+        elseif (preg_match('/[?&]q=([^&]+)/', $url, $matches)) {
+            $searchTerm = urldecode($matches[1]);
+            $this->address = str_replace('+', ' ', $searchTerm);
+            $extracted = true;
+        }
+        // 7. maps.app.goo.gl形式の解析
+        elseif (preg_match('/maps\.app\.goo\.gl\/[a-zA-Z0-9]+/', $url)) {
+            // 短縮URLが展開されていない場合は、再度展開を試行
+            if (strpos($url, 'maps.app.goo.gl') !== false) {
+                $expandedUrl = $this->expandShortUrl($url);
+                if ($expandedUrl) {
+                    $url = $expandedUrl;
+                    // 展開されたURLで再帰的に解析
+                    return $this->extractFromGoogleMaps();
+                }
+            }
+            $extracted = true;
         }
 
-        // 電話番号の抽出（URLに含まれている場合）
-        if (preg_match('/tel:([^\/\s]+)/', $url, $telMatches)) {
+        // 電話番号の抽出
+        if (preg_match('/tel:([^\/\s&]+)/', $url, $telMatches)) {
             $this->phone = $telMatches[1];
         }
 
+        if (!$extracted) {
+            session()->flash('error', 'GoogleマップURLの形式が認識できませんでした。');
+            return;
+        }
+
+        // 座標が取得できた場合、Google Maps APIで詳細情報を取得
+        if ($this->latitude && $this->longitude) {
+            $this->dispatch('get-place-details-from-coords', lat: $this->latitude, lng: $this->longitude);
+        }
         // 住所が設定されているが緯度経度が設定されていない場合、住所から取得を試行
-        if ($this->address && (!$this->latitude || !$this->longitude)) {
+        elseif ($this->address && (!$this->latitude || !$this->longitude)) {
             $this->dispatch('get-lat-lng', address: $this->address);
         }
+
+        session()->flash('success', 'GoogleマップURLから情報を取得しました。');
     } catch (\Exception $e) {
-        // エラー処理
         session()->flash('error', 'GoogleマップURLの解析に失敗しました: ' . $e->getMessage());
     } finally {
         $this->isProcessing = false;
@@ -127,20 +234,33 @@ $extractFromGoogleMaps = function () {
     }
 };
 
-$getLatLngFromAddress = function () {
-    if (!$this->address) {
-        return;
+$setLatLng = function ($lat, $lng, $formattedAddress = null) {
+    $this->latitude = $lat;
+    $this->longitude = $lng;
+    if ($formattedAddress && !$this->address) {
+        $this->address = $formattedAddress;
     }
-
-    $this->dispatch('get-lat-lng', address: $this->address);
 };
 
-$getPlaceDetailsFromUrl = function () {
-    if (!$this->googleMapsUrl) {
-        return;
+$setPlaceDetails = function ($name, $address, $phone, $lat, $lng, $website = null) {
+    if ($name) {
+        $this->name = $name;
     }
-
-    $this->dispatch('get-place-details', url: $this->googleMapsUrl);
+    if ($address) {
+        $this->address = $address;
+    }
+    if ($phone) {
+        $this->phone = $phone;
+    }
+    if ($lat) {
+        $this->latitude = $lat;
+    }
+    if ($lng) {
+        $this->longitude = $lng;
+    }
+    if ($website) {
+        $this->website = $website;
+    }
 };
 
 ?>
@@ -181,18 +301,12 @@ $getPlaceDetailsFromUrl = function () {
                             <button type="button" wire:click="extractFromGoogleMaps" wire:loading.attr="disabled"
                                 wire:loading.class="opacity-50"
                                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
-                                <span wire:loading.remove>基本取得</span>
-                                <span wire:loading>処理中...</span>
-                            </button>
-                            <button type="button" wire:click="getPlaceDetailsFromUrl" wire:loading.attr="disabled"
-                                wire:loading.class="opacity-50"
-                                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
-                                <span wire:loading.remove>詳細取得</span>
+                                <span wire:loading.remove>反映</span>
                                 <span wire:loading>処理中...</span>
                             </button>
                         </div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            GoogleマップのURLを貼り付けて、「基本取得」でURL解析、「詳細取得」でGoogleマップAPIを使用して詳細情報を取得します
+                            GoogleマップのURLを貼り付けて「反映」ボタンをクリックすると、会社名・住所・電話番号を自動入力します
                         </p>
                     </div>
                 </div>
@@ -324,74 +438,75 @@ $getPlaceDetailsFromUrl = function () {
             console.log('Google Maps ready in client create');
         });
 
-        // GoogleマップURLから詳細情報を取得するイベントリスナー
-        Livewire.on('get-place-details', function(data) {
-            const url = data.url;
-            if (url && window.googleMapsReady) {
-                extractPlaceDetailsFromUrl(url);
+        // 住所から緯度経度を取得
+        Livewire.on('get-lat-lng', function(data) {
+            if (window.getLatLngFromAddress) {
+                window.getLatLngFromAddress(data.address, function(result) {
+                    if (result) {
+                        Livewire.dispatch('set-lat-lng', {
+                            lat: result.lat,
+                            lng: result.lng,
+                            formattedAddress: result.formatted_address
+                        });
+                    }
+                });
             }
         });
 
-        // URLからPlace IDを抽出して詳細情報を取得する関数
-        function extractPlaceDetailsFromUrl(url) {
-            try {
-                // Place IDを抽出
-                let placeId = null;
-
-                // 新しいURL形式からPlace IDを抽出
-                if (url.includes('/place/')) {
-                    const match = url.match(/\/place\/([^\/]+)\//);
-                    if (match) {
-                        placeId = match[1];
-                    }
-                }
-
-                if (placeId) {
-                    // Places APIを使用して詳細情報を取得
-                    const service = new google.maps.places.PlacesService(document.createElement('div'));
-                    service.getDetails({
-                        placeId: placeId,
-                        fields: ['name', 'formatted_address', 'formatted_phone_number', 'geometry',
-                            'website'
-                        ]
-                    }, function(place, status) {
-                        if (status === google.maps.places.PlacesServiceStatus.OK) {
-                            // 取得した情報をLivewireに送信
+        // 座標からPlace IDを取得し、詳細情報を取得
+        Livewire.on('get-place-details-from-coords', function(data) {
+            if (window.getPlaceIdFromCoordinates) {
+                window.getPlaceIdFromCoordinates(data.lat, data.lng, function(placeResult) {
+                    if (placeResult) {
+                        // フォールバック: Geocodingの結果を直接使用
+                        if (placeResult.use_geocoding_result) {
+                            console.log('Using Geocoding result as fallback');
                             Livewire.dispatch('set-place-details', {
-                                name: place.name || '',
-                                address: place.formatted_address || '',
-                                phone: place.formatted_phone_number || '',
-                                lat: place.geometry.location.lat(),
-                                lng: place.geometry.location.lng(),
-                                website: place.website || ''
+                                name: placeResult.name,
+                                address: placeResult.formatted_address,
+                                phone: '', // Geocodingでは電話番号は取得できない
+                                lat: placeResult.lat,
+                                lng: placeResult.lng,
+                                website: ''
                             });
-                        } else {
-                            console.error('Place details request failed:', status);
-                            // フォールバック: URL解析を試行
-                            @this.call('extractFromGoogleMaps');
+                        } else if (placeResult.place_id && window.getPlaceDetails) {
+                            // 新しいPlaces APIを使用
+                            window.getPlaceDetails(placeResult.place_id, function(details) {
+                                if (details) {
+                                    Livewire.dispatch('set-place-details', {
+                                        name: details.name,
+                                        address: details.address,
+                                        phone: details.phone,
+                                        lat: details.lat,
+                                        lng: details.lng,
+                                        website: details.website
+                                    });
+                                }
+                            });
                         }
-                    });
-                } else {
-                    // Place IDが見つからない場合はURL解析を試行
-                    @this.call('extractFromGoogleMaps');
-                }
-            } catch (error) {
-                console.error('Error extracting place details:', error);
-                // エラー時はURL解析を試行
-                @this.call('extractFromGoogleMaps');
+                    }
+                });
             }
-        }
+        });
 
-        // 詳細情報が設定された時のイベントリスナー
-        Livewire.on('set-place-details', function(data) {
-            @this.set('name', data.name);
-            @this.set('address', data.address);
-            @this.set('phone', data.phone);
+        // 緯度経度を設定
+        Livewire.on('set-lat-lng', function(data) {
+            // Livewireのプロパティを直接更新
             @this.set('latitude', data.lat);
             @this.set('longitude', data.lng);
-            if (data.website) {
-                @this.set('email', data.website);
+            if (data.formattedAddress && !@this.address) {
+                @this.set('address', data.formattedAddress);
             }
+        });
+
+        // 詳細情報を設定
+        Livewire.on('set-place-details', function(data) {
+            if (data.name) @this.set('name', data.name);
+            if (data.address) @this.set('address', data.address);
+            if (data.phone) @this.set('phone', data.phone);
+            if (data.lat) @this.set('latitude', data.lat);
+            if (data.lng) @this.set('longitude', data.lng);
+            if (data.website) @this.set('website', data.website);
         });
     });
 </script>

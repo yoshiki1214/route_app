@@ -14,7 +14,20 @@
 @fluxAppearance
 
 @if (config('services.google_maps.api_key'))
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&libraries=places&callback=initGoogleMaps">
+    <script>
+        // Google Maps APIの読み込みを遅延させる
+        window.loadGoogleMaps = function() {
+            if (window.initGoogleMaps) {
+                const script = document.createElement('script');
+                script.src =
+                    'https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.api_key') }}&libraries=places&callback=initGoogleMaps&v=weekly';
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            } else {
+                // initGoogleMaps関数がまだ定義されていない場合は少し待つ
+                setTimeout(window.loadGoogleMaps, 100);
+            }
+        };
     </script>
 @endif
