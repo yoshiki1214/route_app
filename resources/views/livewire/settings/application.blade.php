@@ -24,7 +24,7 @@ $saveSettings = function () {
 <section class="w-full">
     @include('partials.settings-heading')
 
-    <x-settings.layout :heading="__('Application Settings')" :subheading="__('アプリケーションの動作設定を管理します')">
+    <x-settings.layout :heading="__('アプリの設定')" :subheading="__('アプリケーションの動作設定を管理します')">
         @if (session('settings-saved'))
             <div
                 class="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
@@ -36,7 +36,7 @@ $saveSettings = function () {
 
         <form wire:submit="saveSettings" class="space-y-6">
             <div>
-                <flux:label for="defaultDuration">{{ __('Default Appointment Duration') }}</flux:label>
+                <flux:label for="defaultDuration">{{ __('滞在時間') }}</flux:label>
                 <flux:select wire:model="defaultDuration" id="defaultDuration">
                     <option value="15">15分</option>
                     <option value="30">30分</option>
@@ -52,9 +52,10 @@ $saveSettings = function () {
                 </flux:description>
             </div>
 
+
             <div class="flex items-center justify-end">
                 <flux:button type="submit" variant="primary">
-                    {{ __('Save Settings') }}
+                    {{ __('保存') }}
                 </flux:button>
             </div>
         </form>

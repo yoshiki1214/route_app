@@ -1,0 +1,137 @@
+/* ページ全体のレイアウト */
+.settings-page {
+    @apply py-12;
+}
+
+.settings-page-wrapper {
+    @apply max-w-7xl mx-auto sm:px-6 lg:px-8;
+}
+
+.settings-layout {
+    @apply grid grid-cols-1 md:grid-cols-4 gap-6;
+}
+
+.settings-sidebar-wrapper {
+    @apply md:col-span-1;
+}
+
+.settings-content-wrapper {
+    @apply md:col-span-3;
+}
+
+/* サイドバーナビゲーション */
+.settings-nav-menu {
+    @apply space-y-1 bg-white dark:bg-gray-800 rounded-lg shadow p-4;
+}
+
+.settings-nav-menu-header {
+    @apply mb-4;
+}
+
+.settings-nav-menu-title {
+    @apply text-lg font-medium text-gray-900 dark:text-white;
+}
+
+.settings-nav-menu-subtitle {
+    @apply mt-1 text-sm text-gray-500 dark:text-gray-400;
+}
+
+.settings-nav-menu-list {
+    @apply space-y-1;
+}
+
+/* 設定セクション */
+.settings-section {
+    @apply p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg;
+}
+
+.settings-section-inner {
+    @apply max-w-xl;
+}
+
+.settings-section-title {
+    @apply text-lg font-medium text-gray-900 dark:text-gray-100;
+}
+
+.settings-section-description {
+    @apply mt-1 text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* フォーム要素 */
+.settings-form-container {
+    @apply mt-6 space-y-6;
+}
+
+.settings-form-section {
+    @apply space-y-4;
+}
+
+.settings-input-label {
+    @apply block font-medium text-sm text-gray-700 dark:text-gray-300;
+}
+
+.settings-text-input {
+    @apply mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm;
+}
+
+.settings-select-input {
+    @apply mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm;
+}
+
+/* チェックボックスグループ */
+.settings-checkbox-container {
+    @apply flex items-center;
+}
+
+.settings-checkbox-input {
+    @apply rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500;
+}
+
+.settings-checkbox-text {
+    @apply ml-2 block text-sm text-gray-900 dark:text-gray-100;
+}
+
+/* ボタンエリア */
+.settings-button-container {
+    @apply flex items-center gap-4;
+}
+
+.settings-save-button {
+    @apply inline-flex items-center px-4 py-2 bg-blue-600 dark:bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white dark:text-white uppercase tracking-widest hover:bg-blue-700 dark:hover:bg-blue-700 focus:bg-blue-700 dark:focus:bg-blue-700 active:bg-blue-900 dark:active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150;
+}
+
+/* ステータスメッセージ */
+.settings-status-message {
+    @apply text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* 説明エリア */
+.settings-help-section {
+    @apply space-y-4;
+}
+
+.settings-help-title {
+    @apply font-medium text-gray-900 dark:text-gray-100;
+}
+
+.settings-help-text {
+    @apply text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* ルート設定固有のスタイル */
+.route-settings-mode-select {
+    @apply mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm;
+}
+
+.route-settings-option {
+    @apply flex items-center space-x-2;
+}
+
+.route-settings-option-text {
+    @apply text-sm text-gray-700 dark:text-gray-300;
+}
+
+/* エラーメッセージ */
+.settings-error-message {
+    @apply mt-2 text-sm text-red-600 dark:text-red-400;
+}

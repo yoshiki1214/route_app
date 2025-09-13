@@ -20,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
     Volt::route('settings/application', 'settings.application')->name('settings.application');
+    Volt::route('settings/route', 'settings.route-settings')->name('settings.route');
 });
 
 require __DIR__ . '/auth.php';
