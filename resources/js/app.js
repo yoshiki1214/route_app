@@ -246,6 +246,192 @@ window.extractCoordinatesFromUrl = function (url, callback) {
   }
 };
 
+// 現在地を取得する関数
+window.getCurrentLocation = function (callback) {
+  console.log('Starting to get current location...');
+
+  if (!navigator.geolocation) {
+    console.error('Geolocation is not supported by this browser.');
+    callback(null);
+    return;
+  }
+
+  console.log('Requesting current position...');
+
+  navigator.geolocation.getCurrentPosition(
+    function (position) {
+      const location = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: position.timestamp
+      };
+      console.log('Current location obtained successfully:', location);
+      console.log('Location accuracy:', position.coords.accuracy, 'meters');
+      callback(location);
+    },
+    function (error) {
+      console.error('Error getting current location:', error);
+      let errorMessage = '位置情報の取得に失敗しました: ';
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += '位置情報の使用が許可されていません';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += '位置情報を取得できませんでした';
+          break;
+        case error.TIMEOUT:
+          errorMessage += '位置情報の取得がタイムアウトしました';
+          break;
+        default:
+          errorMessage += '不明なエラーが発生しました';
+          break;
+      }
+      console.error(errorMessage);
+      callback(null);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 300000 // 5分間キャッシュ
+    }
+  );
+};
+
+// 現在地を取得して表示する関数（デバッグ用）
+window.getCurrentLocationAndDisplay = function () {
+  console.log('=== 現在地取得テスト開始 ===');
+
+  window.getCurrentLocation(function (location) {
+    if (location) {
+      console.log('=== 現在地取得成功 ===');
+      console.log('緯度:', location.lat);
+      console.log('経度:', location.lng);
+      console.log('精度:', location.accuracy, 'メートル');
+      console.log('取得時刻:', new Date(location.timestamp).toLocaleString('ja-JP'));
+
+      // 住所を逆ジオコーディングで取得
+      if (window.google && window.google.maps) {
+        const geocoder = new google.maps.Geocoder();
+        const latlng = new google.maps.LatLng(location.lat, location.lng);
+
+        geocoder.geocode({ location: latlng }, function (results, status) {
+          if (status === 'OK' && results[0]) {
+            console.log('住所:', results[0].formatted_address);
+          } else {
+            console.log('住所の取得に失敗:', status);
+          }
+        });
+      }
+    } else {
+      console.log('=== 現在地取得失敗 ===');
+    }
+    console.log('=== 現在地取得テスト終了 ===');
+  });
+};
+
+// Google Maps Distance Matrix APIを使用して距離を取得する関数
+window.getDistances = function (origin, destinations, callback) {
+  if (!window.googleMapsReady) {
+    console.error('Google Maps API is not ready');
+    callback(null);
+    return;
+  }
+
+  const distanceMatrixService = new google.maps.DistanceMatrixService();
+
+  const request = {
+    origins: [origin],
+    destinations: destinations,
+    travelMode: google.maps.TravelMode.DRIVING,
+    unitSystem: google.maps.UnitSystem.METRIC,
+    avoidHighways: false,
+    avoidTolls: false
+  };
+
+  distanceMatrixService.getDistanceMatrix(request, function (response, status) {
+    if (status === 'OK') {
+      const results = response.rows[0].elements;
+      const distances = [];
+
+      for (let i = 0; i < results.length; i++) {
+        const element = results[i];
+        if (element.status === 'OK') {
+          distances.push({
+            index: i,
+            distance: element.distance.text,
+            distanceValue: element.distance.value,
+            duration: element.duration.text,
+            durationValue: element.duration.value
+          });
+        } else {
+          console.error('Distance calculation failed for destination', i, ':', element.status);
+          distances.push({
+            index: i,
+            distance: null,
+            distanceValue: null,
+            duration: null,
+            durationValue: null
+          });
+        }
+      }
+
+      console.log('Distances calculated:', distances);
+      callback(distances);
+    } else {
+      console.error('Distance Matrix request failed:', status);
+      callback(null);
+    }
+  });
+};
+
+// Google Maps Directions APIを使用して移動時間を取得する関数
+window.getTravelTime = function (origin, destination, callback) {
+  if (!window.googleMapsReady) {
+    console.error('Google Maps API is not ready');
+    callback(null);
+    return;
+  }
+
+  const directionsService = new google.maps.DirectionsService();
+
+  const request = {
+    origin: origin,
+    destination: destination,
+    travelMode: google.maps.TravelMode.DRIVING,
+    unitSystem: google.maps.UnitSystem.METRIC,
+    avoidHighways: false,
+    avoidTolls: false
+  };
+
+  directionsService.route(request, function (result, status) {
+    if (status === 'OK') {
+      const route = result.routes[0];
+      const leg = route.legs[0];
+      const duration = leg.duration;
+
+      // 移動時間を分単位で返す
+      const durationInMinutes = duration.value / 60;
+
+      console.log('Travel time calculated:', {
+        origin: origin,
+        destination: destination,
+        duration: duration.text,
+        durationInMinutes: durationInMinutes
+      });
+
+      callback({
+        duration: duration.text,
+        durationInMinutes: Math.round(durationInMinutes),
+        distance: leg.distance.text
+      });
+    } else {
+      console.error('Directions request failed:', status);
+      callback(null);
+    }
+  });
+};
+
 // 地図を初期化する関数
 window.initMap = function (elementId, options = {}) {
   if (!window.googleMapsReady) {
