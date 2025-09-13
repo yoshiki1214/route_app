@@ -1,0 +1,102 @@
+/* ページレイアウトのスタイル */
+.page-container {
+    @apply min-h-screen bg-gray-100 dark:bg-gray-900 py-8;
+}
+
+.page-content {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.page-header {
+    @apply mb-8;
+}
+
+.page-header-content {
+    @apply flex items-center justify-between;
+}
+
+.page-title {
+    @apply text-3xl font-bold text-gray-900 dark:text-white;
+}
+
+.page-subtitle {
+    @apply mt-2 text-gray-600 dark:text-gray-400;
+}
+
+.page-actions {
+    @apply flex space-x-3;
+}
+
+/* カードのスタイル */
+.card {
+    @apply bg-white dark:bg-gray-800 shadow rounded-lg;
+}
+
+.card-header {
+    @apply p-6;
+}
+
+.card-title {
+    @apply text-lg font-medium text-gray-900 dark:text-white mb-4;
+}
+
+.card-content {
+    @apply p-6 space-y-6;
+}
+
+.card-section {
+    @apply space-y-6;
+}
+
+.card-section-title {
+    @apply text-lg font-medium text-gray-900 dark:text-white;
+}
+
+.card-section-divider {
+    @apply border-b border-gray-200 dark:border-gray-700 pb-6;
+}
+
+/* モーダルのスタイル */
+.client-modal-overlay {
+    @apply fixed inset-0 z-50 overflow-y-auto;
+}
+
+.client-modal-backdrop {
+    @apply fixed inset-0 transition-opacity;
+}
+
+.client-modal-backdrop-bg {
+    @apply absolute inset-0 bg-gray-500 opacity-75;
+}
+
+.client-modal-container {
+    @apply flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0;
+}
+
+.client-modal-dialog {
+    @apply inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full;
+}
+
+.client-modal-header {
+    @apply bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4;
+}
+
+.client-modal-title {
+    @apply text-lg font-medium text-gray-900 mb-4;
+}
+
+.client-modal-body {
+    @apply space-y-4;
+}
+
+.client-modal-footer {
+    @apply bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse;
+}
+
+.client-modal-button-primary {
+    @apply w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm;
+}
+
+.client-modal-button-secondary {
+    @apply mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm;
+}

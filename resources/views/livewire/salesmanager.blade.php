@@ -96,6 +96,14 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
         // オブジェクトのまま保持し、追加プロパティを設定
         $appointmentWithTravel = clone $appointment;
 
+        // 前のアポイントメントを設定
+        if ($index > 0) {
+            $previousAppointment = $appointments[$index - 1];
+            $appointmentWithTravel->previous_client = $previousAppointment->client;
+        } else {
+            $appointmentWithTravel->previous_client = null;
+        }
+
         // 次のアポイントメントがある場合、移動時間を計算
         if ($index < $appointments->count() - 1) {
             $nextAppointment = $appointments[$index + 1];
@@ -262,30 +270,29 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
                                                         </svg>
                                                         <div
                                                             class="text-sm font-medium text-orange-700 dark:text-orange-300">
-                                                            <div>移動:
-                                                                @if ($appointment->travel_hours > 0)
-                                                                    {{ $appointment->travel_hours }}時間
-                                                                @endif
-                                                                @if ($appointment->travel_minutes > 0)
-                                                                    {{ $appointment->travel_minutes }}分
-                                                                @endif
-                                                                @if ($appointment->travel_hours == 0 && $appointment->travel_minutes == 0)
-                                                                    0分
+                                                            <div class="flex items-center justify-between">
+                                                                <span>移動:
+                                                                    @if ($appointment->travel_hours > 0)
+                                                                        {{ $appointment->travel_hours }}時間
+                                                                    @endif
+                                                                    @if ($appointment->travel_minutes > 0)
+                                                                        {{ $appointment->travel_minutes }}分
+                                                                    @endif
+                                                                    @if ($appointment->travel_hours == 0 && $appointment->travel_minutes == 0)
+                                                                        0分
+                                                                    @endif
+                                                                    @if ($appointment->travel_distance_text)
+                                                                        ({{ $appointment->travel_distance_text }})
+                                                                    @endif
+                                                                </span>
+                                                                @if ($appointment->previous_client && $appointment->previous_client->address && $appointment->client->address)
+                                                                    <button
+                                                                        onclick="showRoute('{{ $appointment->previous_client->address }}', '{{ $appointment->client->address }}')"
+                                                                        class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline ml-2">
+                                                                        ルートを表示
+                                                                    </button>
                                                                 @endif
                                                             </div>
-                                                            @if ($appointment->travel_duration_text)
-                                                                <div
-                                                                    class="text-xs text-orange-600 dark:text-orange-400">
-                                                                    (Google Maps:
-                                                                    {{ $appointment->travel_duration_text }})
-                                                                </div>
-                                                            @endif
-                                                            @if ($appointment->travel_distance_text)
-                                                                <div
-                                                                    class="text-xs text-orange-600 dark:text-orange-400">
-                                                                    {{ $appointment->travel_distance_text }}
-                                                                </div>
-                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>

@@ -12,12 +12,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/visits/{visitId}/edit', 'visits.edit')->name('visits.edit');  // 訪問記録編集ルートを追加
     Volt::route('/appointments', 'appointments.index')->name('appointments.index');  // アポイントメント一覧ルートを追加
     Volt::route('/appointments/create', 'appointments.create')->name('appointments.create');  // アポイントメント作成ルートを追加
+    Volt::route('/appointments/{appointmentId}/created', 'appointments.created')->name('appointments.created');  // アポイントメント作成完了ルートを追加
     Volt::route('/appointments/{appointmentId}/edit', 'appointments.edit')->name('appointments.edit');  // アポイントメント編集ルートを追加
 
     Route::redirect('settings', 'settings/profile');
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
+    Volt::route('settings/application', 'settings.application')->name('settings.application');
 });
 
 require __DIR__ . '/auth.php';

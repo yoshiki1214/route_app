@@ -84,65 +84,6 @@ $deleteVisit = function ($visitId) {
                     </div>
                 </div>
 
-                <!-- クライアント情報カード -->
-                <div class="bg-white rounded-lg shadow p-6 mb-6">
-                    <h2 class="text-lg font-medium text-gray-900 mb-4">基本情報</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 class="text-sm font-medium text-gray-500">連絡先情報</h3>
-                            <div class="mt-2 space-y-2">
-                                @if ($this->client->phone)
-                                    <div class="flex items-center">
-                                        <span class="text-sm text-gray-500 w-20">電話:</span>
-                                        <a href="tel:{{ $this->client->phone }}"
-                                            class="text-sm text-blue-600 hover:text-blue-800">
-                                            {{ $this->client->phone }}
-                                        </a>
-                                    </div>
-                                @endif
-                                @if ($this->client->email)
-                                    <div class="flex items-center">
-                                        <span class="text-sm text-gray-500 w-20">メール:</span>
-                                        <a href="mailto:{{ $this->client->email }}"
-                                            class="text-sm text-blue-600 hover:text-blue-800">
-                                            {{ $this->client->email }}
-                                        </a>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-medium text-gray-500">担当者情報</h3>
-                            <div class="mt-2 space-y-2">
-                                @if ($this->client->contact_person)
-                                    <div class="flex items-center">
-                                        <span class="text-sm text-gray-500 w-20">担当者:</span>
-                                        <span class="text-sm text-gray-900">{{ $this->client->contact_person }}</span>
-                                    </div>
-                                @endif
-                                @if ($this->client->department)
-                                    <div class="flex items-center">
-                                        <span class="text-sm text-gray-500 w-20">部署:</span>
-                                        <span class="text-sm text-gray-900">{{ $this->client->department }}</span>
-                                    </div>
-                                @endif
-                                @if ($this->client->position)
-                                    <div class="flex items-center">
-                                        <span class="text-sm text-gray-500 w-20">役職:</span>
-                                        <span class="text-sm text-gray-900">{{ $this->client->position }}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    @if ($this->client->notes)
-                        <div class="mt-6">
-                            <h3 class="text-sm font-medium text-gray-500">備考</h3>
-                            <p class="mt-2 text-sm text-gray-900">{{ $this->client->notes }}</p>
-                        </div>
-                    @endif
-
-                </div>
 
                 <!-- タブナビゲーション -->
                 <div class="bg-white rounded-lg shadow">
@@ -163,6 +104,14 @@ $deleteVisit = function ($visitId) {
                                     $activeTab !== 'memos',
                             ])>
                                 メモ ({{ $this->memos->count() }})
+                            </button>
+                            <button wire:click="setActiveTab('basic')" @class([
+                                'py-4 px-1 border-b-2 font-medium text-sm',
+                                'border-blue-500 text-blue-600' => $activeTab === 'basic',
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' =>
+                                    $activeTab !== 'basic',
+                            ])>
+                                基本情報
                             </button>
                         </nav>
                     </div>
@@ -247,6 +196,68 @@ $deleteVisit = function ($visitId) {
                                         <p class="text-gray-500">メモがありません</p>
                                     </div>
                                 @endforelse
+                            </div>
+                        @elseif ($activeTab === 'basic')
+                            <!-- 基本情報タブ -->
+                            <div class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-500 mb-3">連絡先情報</h3>
+                                        <div class="space-y-3">
+                                            @if ($this->client->phone)
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-500 w-20">電話:</span>
+                                                    <a href="tel:{{ $this->client->phone }}"
+                                                        class="text-sm text-blue-600 hover:text-blue-800">
+                                                        {{ $this->client->phone }}
+                                                    </a>
+                                                </div>
+                                            @endif
+                                            @if ($this->client->email)
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-500 w-20">メール:</span>
+                                                    <a href="mailto:{{ $this->client->email }}"
+                                                        class="text-sm text-blue-600 hover:text-blue-800">
+                                                        {{ $this->client->email }}
+                                                    </a>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-500 mb-3">担当者情報</h3>
+                                        <div class="space-y-3">
+                                            @if ($this->client->contact_person)
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-500 w-20">担当者:</span>
+                                                    <span
+                                                        class="text-sm text-gray-900">{{ $this->client->contact_person }}</span>
+                                                </div>
+                                            @endif
+                                            @if ($this->client->department)
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-500 w-20">部署:</span>
+                                                    <span
+                                                        class="text-sm text-gray-900">{{ $this->client->department }}</span>
+                                                </div>
+                                            @endif
+                                            @if ($this->client->position)
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-500 w-20">役職:</span>
+                                                    <span
+                                                        class="text-sm text-gray-900">{{ $this->client->position }}</span>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                @if ($this->client->notes)
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-500 mb-3">備考</h3>
+                                        <p class="text-sm text-gray-900 bg-gray-50 p-4 rounded-lg">
+                                            {{ $this->client->notes }}</p>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>

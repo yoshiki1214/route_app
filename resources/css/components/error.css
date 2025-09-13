@@ -1,0 +1,16 @@
+/* エラーページのスタイル */
+.error-page {
+    @apply text-center py-12;
+}
+
+.error-title {
+    @apply text-2xl font-semibold text-gray-900 dark:text-white;
+}
+
+.error-message {
+    @apply mt-2 text-gray-500 dark:text-gray-400;
+}
+
+.error-actions {
+    @apply mt-6;
+}
