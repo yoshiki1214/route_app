@@ -3,10 +3,12 @@
 use function Livewire\Volt\{state, rules, mount, computed};
 use App\Models\Client;
 use App\Models\Visit;
+use App\Models\Appointment;
 use Carbon\Carbon;
 
 state([
     'client' => null,
+    'appointment' => null,
     'visit_type' => '訪問',
     'visited_at' => '',
     'status' => '完了',
@@ -28,6 +30,19 @@ mount(function ($clientId = null) {
             $this->visited_at = now()->format('Y-m-d\TH:i');
         }
     }
+
+    // アポイントメントIDがクエリパラメータで渡された場合
+    $appointmentId = request()->query('appointment_id');
+    if ($appointmentId) {
+        $this->appointment = Appointment::with('client')->find($appointmentId);
+        if ($this->appointment) {
+            // アポイントメントの情報を自動入力
+            $this->client = $this->appointment->client;
+            $this->visit_type = $this->appointment->visit_type;
+            $this->visited_at = Carbon::parse($this->appointment->start_datetime)->format('Y-m-d\TH:i');
+            $this->notes = $this->appointment->memo ?? '';
+        }
+    }
 });
 
 $save = function () {
@@ -45,6 +60,7 @@ $save = function () {
         'visited_at' => $validated['visited_at'],
         'status' => $validated['status'],
         'notes' => $validated['notes'],
+        'appointment_id' => $this->appointment?->id,
     ]);
 
     // クライアント詳細ページにリダイレクト
@@ -147,6 +163,50 @@ $statusOptions = computed(function () {
                         </div>
                     </div>
                 </div>
+
+                <!-- アポイントメント情報カード -->
+                @if ($this->appointment)
+                    <div class="card mb-6">
+                        <div class="card-header">
+                            <h2 class="card-title">アポイントメント情報</h2>
+                        </div>
+                        <div class="card-content">
+                            <div class="client-info-grid">
+                                <div>
+                                    <h3 class="client-info-label">予定詳細</h3>
+                                    <div class="client-info-section">
+                                        <div class="client-info-item">
+                                            <span class="client-info-key">件名:</span>
+                                            <span
+                                                class="client-info-value font-medium">{{ $this->appointment->title }}</span>
+                                        </div>
+                                        <div class="client-info-item">
+                                            <span class="client-info-key">予定日時:</span>
+                                            <span class="client-info-value">
+                                                {{ \Carbon\Carbon::parse($this->appointment->start_datetime)->format('Y年m月d日 H:i') }}
+                                                -
+                                                {{ \Carbon\Carbon::parse($this->appointment->end_datetime)->format('H:i') }}
+                                            </span>
+                                        </div>
+                                        <div class="client-info-item">
+                                            <span class="client-info-key">訪問種別:</span>
+                                            <span class="client-info-value">{{ $this->appointment->visit_type }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                @if ($this->appointment->memo)
+                                    <div>
+                                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">メモ</h3>
+                                        <div class="mt-2">
+                                            <p class="text-sm text-gray-900 dark:text-white">
+                                                {{ $this->appointment->memo }}</p>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 <!-- フォーム -->
                 <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
