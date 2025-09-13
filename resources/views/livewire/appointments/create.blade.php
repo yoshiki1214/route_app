@@ -1,6 +1,6 @@
 <?php
 
-use function Livewire\Volt\{state, rules, computed, mount};
+use function Livewire\Volt\{state, rules, computed, mount, updated};
 use App\Models\Client;
 use App\Models\Appointment;
 use App\Models\Visit;
@@ -14,13 +14,28 @@ state([
     'start_datetime' => '',
     'end_datetime' => '',
     'memo' => '',
+    'defaultDuration' => 60, // デフォルト60分
 ]);
 
 mount(function ($client_id = null) {
     if ($client_id) {
         $this->selected_client_id = $client_id;
     }
+
+    // セッションからデフォルト滞在時間を取得
+    $this->defaultDuration = session('appointment_default_duration', 60);
 });
+
+// 開始時間が変更されたときに終了時間を自動設定
+updated([
+    'start_datetime' => function () {
+        if ($this->start_datetime) {
+            $startTime = Carbon::parse($this->start_datetime);
+            $endTime = $startTime->copy()->addMinutes($this->defaultDuration);
+            $this->end_datetime = $endTime->format('Y-m-d\TH:i');
+        }
+    },
+]);
 
 rules([
     'selected_client_id' => 'required|exists:clients,id',
@@ -44,6 +59,12 @@ $save = function () {
         'memo' => $validated['memo'],
     ]);
 
+    \Log::info('Appointment created:', [
+        'appointment_id' => $appointment->id,
+        'client_id' => $appointment->client_id,
+        'title' => $appointment->title,
+    ]);
+
     // アポイントメントを訪問履歴に予定として追加
     Visit::create([
         'client_id' => $validated['selected_client_id'],
@@ -55,7 +76,12 @@ $save = function () {
         'appointment_id' => $appointment->id, // アポイントメントとの関連付け
     ]);
 
-    return redirect()->route('appointments.index')->with('success', 'アポイントメントが正常に作成されました。');
+    \Log::info('Redirecting to created page:', [
+        'appointment_id' => $appointment->id,
+        'route' => 'appointments.created',
+    ]);
+
+    return redirect()->route('appointments.created', ['appointmentId' => $appointment->id]);
 };
 
 $selectedClient = computed(function () {
@@ -224,6 +250,9 @@ $selectedClient = computed(function () {
                                 </label>
                                 <input type="datetime-local" wire:model.live="end_datetime" id="end_datetime"
                                     class="form-input">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    開始時間を入力すると、設定された滞在時間（{{ $this->defaultDuration }}分）が自動で加算されます。
+                                </p>
                                 @error('end_datetime')
                                     <p class="form-error">{{ $message }}</p>
                                 @enderror

@@ -29,6 +29,13 @@
                     アポイントメント
                 </flux:navlist.item>
             </flux:navlist.group>
+
+            <flux:navlist.group heading="設定">
+                <flux:navlist.item icon="cog" :href="route('settings.application')"
+                    :current="request()->routeIs('settings.*')" wire:navigate>
+                    セッティング
+                </flux:navlist.item>
+            </flux:navlist.group>
         </flux:navlist>
 
         <flux:spacer />
@@ -72,7 +79,8 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>{{ __('Settings') }}
+                    <flux:menu.item :href="route('settings.application')" icon="cog" wire:navigate>
+                        {{ __('Settings') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
 

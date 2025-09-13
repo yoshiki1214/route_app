@@ -511,6 +511,21 @@ window.scrollPositionManager = {
   }
 };
 
+// Googleマップでルートを表示する関数
+window.showRoute = function (origin, destination) {
+  console.log('Showing route from:', origin, 'to:', destination);
+
+  // Googleマップのルート表示URLを生成
+  const encodedOrigin = encodeURIComponent(origin);
+  const encodedDestination = encodeURIComponent(destination);
+  const routeUrl = `https://www.google.com/maps/dir/${encodedOrigin}/${encodedDestination}`;
+
+  console.log('Opening route URL:', routeUrl);
+
+  // 新しいタブでGoogleマップを開く
+  window.open(routeUrl, '_blank');
+};
+
 // ページ読み込み時にスクロール位置管理を初期化
 document.addEventListener('DOMContentLoaded', function () {
   window.scrollPositionManager.init();
