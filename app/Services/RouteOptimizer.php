@@ -110,7 +110,7 @@ class RouteOptimizer
         ];
     }
 
-    private function getDirectionsData(array $origin, array $destination, string $travelMode, bool $useTollRoads, bool $useHighways): ?array
+    public function getDirectionsData(array $origin, array $destination, string $travelMode, bool $useTollRoads, bool $useHighways): ?array
     {
         $avoid = [];
         if (!$useTollRoads) {

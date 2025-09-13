@@ -203,7 +203,7 @@ $todaysAppointments = computed(function () {
                 @if ($this->nearbyClients->isNotEmpty())
                     <div class="bg-white rounded-lg shadow p-6">
                         <h2 class="text-lg font-medium text-gray-900 mb-4">
-                            {{ $this->appointment->client->name }} に近い会社（同じ日にアポイントメントなし）
+                            {{ $this->appointment->client->name }} に近い会社
                         </h2>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             @foreach ($this->nearbyClients as $nearbyClient)
