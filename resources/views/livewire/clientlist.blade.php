@@ -17,6 +17,8 @@ state([
         'latitude' => null,
         'longitude' => null,
     ],
+    'isLoadingLocation' => false,
+    'clientDistances' => [],
 ]);
 
 $sortBy = function ($field) {
@@ -25,6 +27,54 @@ $sortBy = function ($field) {
     } else {
         $this->sortField = $field;
         $this->sortDirection = 'asc';
+    }
+};
+
+$sortByDistance = function () {
+    \Log::info('Starting distance sort - requesting current location');
+    $this->isLoadingLocation = true;
+    $this->dispatch('get-current-location');
+};
+
+$setCurrentLocation = function ($latitude, $longitude) {
+    \Log::info('Setting current location:', [
+        'latitude' => $latitude,
+        'longitude' => $longitude,
+    ]);
+
+    $this->currentLocation = [
+        'latitude' => $latitude,
+        'longitude' => $longitude,
+    ];
+    $this->isLoadingLocation = false;
+
+    // 直接並べ替えを実行（緯度経度からの距離計算を使用）
+    $this->sortField = 'distance';
+    $this->sortDirection = 'asc';
+
+    \Log::info('Current location set, sorting by distance using lat/lng calculation');
+};
+
+$calculateAndSortByDistance = function () {
+    if (!$this->currentLocation['latitude'] || !$this->currentLocation['longitude']) {
+        return;
+    }
+
+    $this->dispatch('calculate-distances', [
+        'origin' => $this->currentLocation,
+        'clients' => $this->clients->toArray(),
+    ]);
+};
+
+$setClientDistances = function ($distances) {
+    \Log::info('Setting client distances:', $distances);
+    $this->clientDistances = $distances;
+    $this->sortField = 'distance';
+    $this->sortDirection = 'asc';
+
+    // デバッグ用: 距離データの確認
+    foreach ($distances as $clientId => $distanceData) {
+        \Log::info("Client {$clientId} distance:", $distanceData);
     }
 };
 
@@ -46,6 +96,7 @@ $calculateDistance = function ($lat1, $lon1, $lat2, $lon2) {
         return null;
     }
 
+    // Haversine formula for calculating distance between two points
     $r = 6371; // 地球の半径（km）
     $lat1 = deg2rad($lat1);
     $lon1 = deg2rad($lon1);
@@ -58,7 +109,15 @@ $calculateDistance = function ($lat1, $lon1, $lat2, $lon2) {
     $a = sin($dlat / 2) ** 2 + cos($lat1) * cos($lat2) * sin($dlon / 2) ** 2;
     $c = 2 * asin(sqrt($a));
 
-    return $r * $c;
+    $distance = $r * $c;
+
+    \Log::info('Distance calculated:', [
+        'from' => ['lat' => rad2deg($lat1), 'lng' => rad2deg($lon1)],
+        'to' => ['lat' => rad2deg($lat2), 'lng' => rad2deg($lon2)],
+        'distance_km' => $distance,
+    ]);
+
+    return $distance;
 };
 
 $updateLocation = function () {
@@ -97,10 +156,28 @@ $filteredClients = computed(function () {
             return $this->getLastVisitDate($client) ?? '2000-01-01';
         }),
         'distance' => $clients->sortBy(function ($client) {
-            if (!$this->currentLocation['latitude']) {
-                return PHP_FLOAT_MAX;
+            // 現在地からの距離を計算
+            if ($this->currentLocation['latitude'] && $client->latitude) {
+                $distance = $this->calculateDistance($this->currentLocation['latitude'], $this->currentLocation['longitude'], $client->latitude, $client->longitude);
+
+                \Log::info('Sorting client by distance:', [
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'distance_km' => $distance,
+                ]);
+
+                return $distance ?: PHP_FLOAT_MAX;
             }
-            return $this->calculateDistance($this->currentLocation['latitude'], $this->currentLocation['longitude'], $client->latitude, $client->longitude);
+
+            \Log::warning('Cannot calculate distance for client:', [
+                'client_id' => $client->id,
+                'client_name' => $client->name,
+                'current_location' => $this->currentLocation,
+                'client_latitude' => $client->latitude,
+                'client_longitude' => $client->longitude,
+            ]);
+
+            return PHP_FLOAT_MAX;
         }),
         'name' => $clients->sortBy('name', SORT_REGULAR, $this->sortDirection === 'desc'),
         default => $clients,
@@ -109,7 +186,8 @@ $filteredClients = computed(function () {
 
 ?>
 
-<div x-data class="client-list-container" x-init="window.addEventListener('requestLocation', () => {
+<div x-data class="client-list-container" x-init="// 現在地取得のイベントリスナー
+window.addEventListener('requestLocation', () => {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             position => {
@@ -122,6 +200,65 @@ $filteredClients = computed(function () {
                 console.error('位置情報の取得に失敗しました:', error);
             }
         );
+    }
+});
+
+// 現在地取得のイベントリスナー（新しい実装）
+window.addEventListener('get-current-location', () => {
+    console.log('Received get-current-location event');
+    if (window.getCurrentLocation) {
+        window.getCurrentLocation((location) => {
+            if (location) {
+                console.log('Successfully got location, setting in Livewire:', location);
+                $wire.setCurrentLocation(location.lat, location.lng);
+            } else {
+                console.error('現在地の取得に失敗しました');
+                $wire.set('isLoadingLocation', false);
+            }
+        });
+    } else {
+        console.error('getCurrentLocation function is not available');
+        $wire.set('isLoadingLocation', false);
+    }
+});
+
+// 距離計算のイベントリスナー
+window.addEventListener('calculate-distances', (event) => {
+    const { origin, clients } = event.detail;
+
+    console.log('Calculating distances for clients:', clients.length);
+
+    if (window.getDistances && clients.length > 0) {
+        const destinations = clients.map(client => client.address).filter(address => address);
+
+        console.log('Destinations to calculate:', destinations);
+
+        if (destinations.length > 0) {
+            window.getDistances(origin, destinations, (distances) => {
+                console.log('Received distances:', distances);
+
+                if (distances) {
+                    const clientDistances = {};
+                    clients.forEach((client, index) => {
+                        if (client.address && distances[index]) {
+                            clientDistances[client.id] = distances[index];
+                        }
+                    });
+
+                    console.log('Setting client distances:', clientDistances);
+                    $wire.setClientDistances(clientDistances);
+                } else {
+                    console.error('Failed to get distances from Google Maps API');
+                    $wire.set('isLoadingLocation', false);
+                }
+            });
+        } else {
+            console.warn('No valid destinations found');
+            $wire.set('isLoadingLocation', false);
+        }
+    } else {
+        console.error('getDistances function not available or no clients');
+        $wire.set('isLoadingLocation', false);
     }
 });">
     <div class="mb-4 space-y-2">
@@ -142,12 +279,24 @@ $filteredClients = computed(function () {
             ])>
                 訪問日（古い順）
             </button>
-            <button wire:click="updateLocation" @class([
+            <button wire:click="sortByDistance" @class([
                 'client-sort-button',
                 'client-sort-button-active' => $sortField === 'distance',
                 'client-sort-button-inactive' => $sortField !== 'distance',
-            ])>
-                現在地から近い順
+            ]) @disabled($isLoadingLocation)>
+                @if ($isLoadingLocation)
+                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                            stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    位置情報取得中...
+                @else
+                    現在地から近い順
+                @endif
             </button>
         </div>
     </div>
@@ -163,16 +312,21 @@ $filteredClients = computed(function () {
                             class="client-card-address text-blue-600 hover:text-blue-800 underline">
                             {{ $client->address }}
                         </a>
-                        @if ($sortField === 'distance' && $this->currentLocation['latitude'])
+                        @if ($sortField === 'distance' && $this->currentLocation['latitude'] && $client->latitude)
                             <div class="client-card-distance">
-                                約{{ round(
-                                    $this->calculateDistance(
+                                @php
+                                    $distance = $this->calculateDistance(
                                         $this->currentLocation['latitude'],
                                         $this->currentLocation['longitude'],
                                         $client->latitude,
                                         $client->longitude,
-                                    ),
-                                ) }}km
+                                    );
+                                @endphp
+                                @if ($distance)
+                                    約{{ round($distance, 1) }}km
+                                @else
+                                    距離不明
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -249,7 +403,7 @@ $filteredClients = computed(function () {
                             <th class="client-table-header-cell">
                                 最終訪問
                             </th>
-                            @if ($sortField === 'distance' && $this->currentLocation['latitude'])
+                            @if ($sortField === 'distance')
                                 <th class="client-table-header-cell">
                                     距離
                                 </th>
@@ -291,17 +445,22 @@ $filteredClients = computed(function () {
                                         @endif
                                     </div>
                                 </td>
-                                @if ($sortField === 'distance' && $this->currentLocation['latitude'])
+                                @if ($sortField === 'distance' && $this->currentLocation['latitude'] && $client->latitude)
                                     <td class="client-table-cell">
                                         <div class="client-table-distance">
-                                            約{{ round(
-                                                $this->calculateDistance(
+                                            @php
+                                                $distance = $this->calculateDistance(
                                                     $this->currentLocation['latitude'],
                                                     $this->currentLocation['longitude'],
                                                     $client->latitude,
                                                     $client->longitude,
-                                                ),
-                                            ) }}km
+                                                );
+                                            @endphp
+                                            @if ($distance)
+                                                約{{ round($distance, 1) }}km
+                                            @else
+                                                距離不明
+                                            @endif
                                         </div>
                                     </td>
                                 @endif
