@@ -132,34 +132,63 @@ window.getPlaceDetails = function (placeId, callback) {
 
   // 新しいPlaces APIの使用
   if (window.google && window.google.maps && window.google.maps.places) {
-    // 新しいAPIでは、Placeオブジェクトをidで初期化
-    const place = new google.maps.places.Place({
-      id: placeId
-    });
+    const service = new google.maps.places.PlacesService(document.createElement('div'));
 
-    // 必要なフィールドを指定してfetchFieldsを呼び出し
-    place.fetchFields({
-      fields: ['displayName', 'formattedAddress', 'internationalPhoneNumber', 'location', 'website']
-    }).then((result) => {
-      console.log('Place Details API Response (New):', result);
+    service.getDetails({
+      placeId: placeId,
+      fields: ['name', 'formatted_address', 'address_components', 'international_phone_number', 'geometry', 'website']
+    }, (place, status) => {
+      console.log('Place Details API Response:', { place, status });
 
-      if (result && result.place) {
-        const place = result.place;
+      if (status === 'OK' && place) {
+        // 住所コンポーネントから詳細な住所を構築
+        let detailedAddress = '';
+        if (place.address_components) {
+          // 都道府県
+          const prefecture = place.address_components.find(c =>
+            c.types.includes('administrative_area_level_1'))?.long_name || '';
+          // 市区町村
+          const city = place.address_components.find(c =>
+            c.types.includes('locality') ||
+            c.types.includes('administrative_area_level_2'))?.long_name || '';
+          // 町名
+          const sublocality = place.address_components.find(c =>
+            c.types.includes('sublocality_level_1') ||
+            c.types.includes('sublocality'))?.long_name || '';
+          // 番地
+          const streetNumber = place.address_components.find(c =>
+            c.types.includes('premise') ||
+            c.types.includes('street_number'))?.long_name || '';
+          // 建物名
+          const building = place.address_components.find(c =>
+            c.types.includes('establishment'))?.long_name || '';
+
+          // 住所を組み立て
+          detailedAddress = [prefecture, city, sublocality, streetNumber, building]
+            .filter(part => part)
+            .join(' ');
+        }
+
+        // フォールバックとして formatted_address を使用
+        const finalAddress = detailedAddress || place.formatted_address;
+
         console.log('Place details retrieved:', {
-          name: place.displayName,
-          address: place.formattedAddress,
-          phone: place.internationalPhoneNumber,
-          location: place.location,
-          website: place.website
+          name: place.name,
+          address: finalAddress,
+          phone: place.international_phone_number,
+          location: place.geometry?.location,
+          website: place.website,
+          address_components: place.address_components
         });
 
         callback({
-          name: place.displayName || '',
-          address: place.formattedAddress || '',
-          phone: place.internationalPhoneNumber || '',
-          lat: place.location?.lat || null,
-          lng: place.location?.lng || null,
-          website: place.website || ''
+          name: place.name || '',
+          address: finalAddress || '',
+          phone: place.international_phone_number || '',
+          lat: place.geometry?.location?.lat() || null,
+          lng: place.geometry?.location?.lng() || null,
+          website: place.website || '',
+          address_components: place.address_components || []
         });
       } else {
         console.error('Place details failed (New API):', result);

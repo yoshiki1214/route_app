@@ -92,7 +92,29 @@ $formatAddressFromPrefecture = function ($address) {
         }
     }
 
-    return trim($cleanAddress);
+    // 番地以降の情報を保持
+    $addressParts = explode(' ', $cleanAddress);
+    $detailedAddress = '';
+    foreach ($addressParts as $part) {
+        if (preg_match('/(\d+(-\d+)*)|([０-９]+(-[０-９]+)*)/', $part)) {
+            $detailedAddress = implode(' ', array_slice($addressParts, array_search($part, $addressParts)));
+            break;
+        }
+    }
+
+    // 都道府県と市区町村を取得
+    $mainAddress = '';
+    foreach ($addressParts as $part) {
+        if (preg_match('/(\d+(-\d+)*)|([０-９]+(-[０-９]+)*)/', $part)) {
+            break;
+        }
+        $mainAddress .= $part;
+    }
+
+    // 最終的な住所を組み立て
+    $finalAddress = trim($mainAddress . ' ' . $detailedAddress);
+
+    return $finalAddress;
 };
 
 $expandShortUrl = function ($url) {
@@ -516,14 +538,66 @@ $setPlaceDetails = function ($name, $address, $phone, $lat, $lng, $website = nul
                             // 新しいPlaces APIを使用
                             window.getPlaceDetails(placeResult.place_id, function(details) {
                                 if (details) {
+                                    // 住所コンポーネントから詳細な住所を構築
+                                    let detailedAddress = '';
+                                    if (details.address_components) {
+                                        // 都道府県
+                                        const prefecture = details.address_components
+                                            .find(c =>
+                                                c.types.includes(
+                                                    'administrative_area_level_1'))
+                                            ?.long_name || '';
+                                        // 市区町村
+                                        const city = details.address_components.find(
+                                                c =>
+                                                c.types.includes('locality') ||
+                                                c.types.includes(
+                                                    'administrative_area_level_2'))
+                                            ?.long_name || '';
+                                        // 町名
+                                        const sublocality = details.address_components
+                                            .find(c =>
+                                                c.types.includes(
+                                                    'sublocality_level_1') ||
+                                                c.types.includes('sublocality'))
+                                            ?.long_name || '';
+                                        // 番地
+                                        const streetNumber = details.address_components
+                                            .find(c =>
+                                                c.types.includes('premise') ||
+                                                c.types.includes('street_number'))
+                                            ?.long_name || '';
+                                        // 建物名
+                                        const building = details.address_components
+                                            .find(c =>
+                                                c.types.includes('establishment'))
+                                            ?.long_name || '';
+
+                                        // 住所を組み立て
+                                        detailedAddress = [prefecture, city,
+                                                sublocality, streetNumber, building
+                                            ]
+                                            .filter(part => part)
+                                            .join(' ');
+                                    }
+
+                                    // フォールバックとして formatted_address を使用
+                                    const finalAddress = detailedAddress || details
+                                        .formatted_address || details.address;
+
                                     Livewire.dispatch('set-place-details', {
                                         name: details.name,
-                                        address: details.address,
+                                        address: finalAddress,
                                         phone: details.phone,
                                         lat: details.lat,
                                         lng: details.lng,
                                         website: details.website
                                     });
+
+                                    console.log('Address components:', details
+                                        .address_components);
+                                    console.log('Built address:', detailedAddress);
+                                    console.log('Final address:', finalAddress);
                                 }
                             });
                         }

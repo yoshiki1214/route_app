@@ -6,6 +6,7 @@ use Carbon\Carbon;
 
 state([
     'appointments' => fn() => Appointment::with(['client', 'visits'])
+        ->whereHas('client') // clientが存在する場合のみ
         ->get()
         ->filter(function ($appointment) {
             // ステータスが「完了」の訪問記録に関連するアポイントメントは非表示
@@ -41,6 +42,7 @@ $deleteAppointment = function ($appointmentId) {
     if ($appointment) {
         $appointment->delete();
         $this->appointments = Appointment::with(['client', 'visits'])
+            ->whereHas('client') // clientが存在する場合のみ
             ->get()
             ->filter(function ($appointment) {
                 // ステータスが「完了」の訪問記録に関連するアポイントメントは非表示
@@ -120,9 +122,11 @@ $deleteAppointment = function ($appointmentId) {
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">
                                     {{ $appointment->title }}
                                 </h3>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    {{ $appointment->client->name }}
-                                </p>
+                                @if ($appointment->client)
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                        {{ $appointment->client->name }}
+                                    </p>
+                                @endif
                                 <div class="flex items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -139,10 +143,12 @@ $deleteAppointment = function ($appointmentId) {
                                 @endif
                             </div>
                             <div class="flex space-x-2">
-                                <a href="{{ route('clients.detail', $appointment->client->id) }}"
-                                    class="client-action-link">
-                                    クライアント詳細
-                                </a>
+                                @if ($appointment->client)
+                                    <a href="{{ route('clients.detail', $appointment->client->id) }}"
+                                        class="client-action-link">
+                                        クライアント詳細
+                                    </a>
+                                @endif
                                 <a href="{{ route('appointments.edit', $appointment->id) }}"
                                     class="client-action-link-green">
                                     編集

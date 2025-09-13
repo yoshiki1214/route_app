@@ -22,6 +22,7 @@ $todayAppointments = computed(function () {
     $today = Carbon::today();
     return Appointment::with(['client', 'user'])
         ->whereDate('start_datetime', $today)
+        ->whereHas('client') // clientが存在する場合のみ
         ->orderBy('start_datetime')
         ->get();
 });
@@ -30,6 +31,7 @@ $upcomingAppointments = computed(function () {
     $today = Carbon::today();
     return Appointment::with(['client', 'user'])
         ->whereDate('start_datetime', '>', $today)
+        ->whereHas('client') // clientが存在する場合のみ
         ->orderBy('start_datetime')
         ->limit(5)
         ->get();
