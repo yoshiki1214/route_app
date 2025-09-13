@@ -246,6 +246,53 @@ window.extractCoordinatesFromUrl = function (url, callback) {
   }
 };
 
+// Google Maps Directions APIを使用して移動時間を取得する関数
+window.getTravelTime = function (origin, destination, callback) {
+  if (!window.googleMapsReady) {
+    console.error('Google Maps API is not ready');
+    callback(null);
+    return;
+  }
+
+  const directionsService = new google.maps.DirectionsService();
+
+  const request = {
+    origin: origin,
+    destination: destination,
+    travelMode: google.maps.TravelMode.DRIVING,
+    unitSystem: google.maps.UnitSystem.METRIC,
+    avoidHighways: false,
+    avoidTolls: false
+  };
+
+  directionsService.route(request, function (result, status) {
+    if (status === 'OK') {
+      const route = result.routes[0];
+      const leg = route.legs[0];
+      const duration = leg.duration;
+
+      // 移動時間を分単位で返す
+      const durationInMinutes = duration.value / 60;
+
+      console.log('Travel time calculated:', {
+        origin: origin,
+        destination: destination,
+        duration: duration.text,
+        durationInMinutes: durationInMinutes
+      });
+
+      callback({
+        duration: duration.text,
+        durationInMinutes: Math.round(durationInMinutes),
+        distance: leg.distance.text
+      });
+    } else {
+      console.error('Directions request failed:', status);
+      callback(null);
+    }
+  });
+};
+
 // 地図を初期化する関数
 window.initMap = function (elementId, options = {}) {
   if (!window.googleMapsReady) {

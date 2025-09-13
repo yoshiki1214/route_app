@@ -35,7 +35,60 @@ $upcomingAppointments = computed(function () {
         ->get();
 });
 
-$todayAppointmentsWithTravelTime = computed(function () {
+// Google Maps APIを使用して移動時間を取得する関数
+$getGoogleMapsTravelTime = function ($origin, $destination) {
+    $apiKey = config('services.google_maps.api_key');
+    if (!$apiKey) {
+        return null;
+    }
+
+    $origin = urlencode($origin);
+    $destination = urlencode($destination);
+
+    $url = "https://maps.googleapis.com/maps/api/directions/json?origin={$origin}&destination={$destination}&key={$apiKey}&language=ja&units=metric";
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 10,
+        ],
+    ]);
+
+    $response = file_get_contents($url, false, $context);
+    if ($response === false) {
+        \Log::error('Google Maps API request failed: ' . $url);
+        return null;
+    }
+
+    $data = json_decode($response, true);
+
+    \Log::info('Google Maps API response:', [
+        'origin' => $origin,
+        'destination' => $destination,
+        'status' => $data['status'] ?? 'unknown',
+        'response' => $data,
+    ]);
+
+    if ($data['status'] === 'OK' && !empty($data['routes'])) {
+        $route = $data['routes'][0];
+        $leg = $route['legs'][0];
+        $duration = $leg['duration'];
+
+        $result = [
+            'duration_text' => $duration['text'],
+            'duration_minutes' => round($duration['value'] / 60),
+            'distance_text' => $leg['distance']['text'],
+        ];
+
+        \Log::info('Google Maps travel time calculated:', $result);
+        return $result;
+    }
+
+    \Log::warning('Google Maps API returned error:', $data);
+    return null;
+};
+
+$todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTravelTime) {
     $appointments = $this->todayAppointments;
     $appointmentsWithTravel = collect();
 
@@ -46,22 +99,58 @@ $todayAppointmentsWithTravelTime = computed(function () {
         // 次のアポイントメントがある場合、移動時間を計算
         if ($index < $appointments->count() - 1) {
             $nextAppointment = $appointments[$index + 1];
-            $currentEndTime = Carbon::parse($appointment->end_datetime);
-            $nextStartTime = Carbon::parse($nextAppointment->start_datetime);
 
-            // 移動時間を計算（分単位）
-            $travelTimeMinutes = $currentEndTime->diffInMinutes($nextStartTime);
-            $travelHours = intval($travelTimeMinutes / 60);
-            $travelMinutes = $travelTimeMinutes % 60;
+            // Google Maps APIを使用して移動時間を取得
+            $origin = $appointment->client->address;
+            $destination = $nextAppointment->client->address;
 
-            $appointmentWithTravel->travel_time_minutes = $travelTimeMinutes;
-            $appointmentWithTravel->travel_hours = $travelHours;
-            $appointmentWithTravel->travel_minutes = $travelMinutes;
-            $appointmentWithTravel->next_client = $nextAppointment->client->name;
+            if ($origin && $destination) {
+                $travelData = $getGoogleMapsTravelTime($origin, $destination);
+
+                if ($travelData) {
+                    // Google Maps APIから取得した実際の移動時間を使用
+                    $travelTimeMinutes = $travelData['duration_minutes'];
+                    $travelHours = intval($travelTimeMinutes / 60);
+                    $travelMinutes = $travelTimeMinutes % 60;
+
+                    $appointmentWithTravel->travel_time_minutes = $travelTimeMinutes;
+                    $appointmentWithTravel->travel_hours = $travelHours;
+                    $appointmentWithTravel->travel_minutes = $travelMinutes;
+                    $appointmentWithTravel->travel_duration_text = $travelData['duration_text'];
+                    $appointmentWithTravel->travel_distance_text = $travelData['distance_text'];
+                    $appointmentWithTravel->next_client = $nextAppointment->client->name;
+                } else {
+                    // Google Maps APIが失敗した場合のフォールバック（デフォルト移動時間を設定）
+                    $travelTimeMinutes = 30; // デフォルト30分
+                    $travelHours = 0;
+                    $travelMinutes = 30;
+
+                    $appointmentWithTravel->travel_time_minutes = $travelTimeMinutes;
+                    $appointmentWithTravel->travel_hours = $travelHours;
+                    $appointmentWithTravel->travel_minutes = $travelMinutes;
+                    $appointmentWithTravel->travel_duration_text = '30分（推定）';
+                    $appointmentWithTravel->travel_distance_text = null;
+                    $appointmentWithTravel->next_client = $nextAppointment->client->name;
+                }
+            } else {
+                // 住所が設定されていない場合のフォールバック（デフォルト移動時間を設定）
+                $travelTimeMinutes = 30; // デフォルト30分
+                $travelHours = 0;
+                $travelMinutes = 30;
+
+                $appointmentWithTravel->travel_time_minutes = $travelTimeMinutes;
+                $appointmentWithTravel->travel_hours = $travelHours;
+                $appointmentWithTravel->travel_minutes = $travelMinutes;
+                $appointmentWithTravel->travel_duration_text = '30分（推定）';
+                $appointmentWithTravel->travel_distance_text = null;
+                $appointmentWithTravel->next_client = $nextAppointment->client->name;
+            }
         } else {
             $appointmentWithTravel->travel_time_minutes = null;
             $appointmentWithTravel->travel_hours = null;
             $appointmentWithTravel->travel_minutes = null;
+            $appointmentWithTravel->travel_duration_text = null;
+            $appointmentWithTravel->travel_distance_text = null;
             $appointmentWithTravel->next_client = null;
         }
 
@@ -171,19 +260,33 @@ $todayAppointmentsWithTravelTime = computed(function () {
                                                             <path stroke-linecap="round" stroke-linejoin="round"
                                                                 stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
                                                         </svg>
-                                                        <span
+                                                        <div
                                                             class="text-sm font-medium text-orange-700 dark:text-orange-300">
-                                                            移動:
-                                                            @if ($appointment->travel_hours > 0)
-                                                                {{ $appointment->travel_hours }}時間
+                                                            <div>移動:
+                                                                @if ($appointment->travel_hours > 0)
+                                                                    {{ $appointment->travel_hours }}時間
+                                                                @endif
+                                                                @if ($appointment->travel_minutes > 0)
+                                                                    {{ $appointment->travel_minutes }}分
+                                                                @endif
+                                                                @if ($appointment->travel_hours == 0 && $appointment->travel_minutes == 0)
+                                                                    0分
+                                                                @endif
+                                                            </div>
+                                                            @if ($appointment->travel_duration_text)
+                                                                <div
+                                                                    class="text-xs text-orange-600 dark:text-orange-400">
+                                                                    (Google Maps:
+                                                                    {{ $appointment->travel_duration_text }})
+                                                                </div>
                                                             @endif
-                                                            @if ($appointment->travel_minutes > 0)
-                                                                {{ $appointment->travel_minutes }}分
+                                                            @if ($appointment->travel_distance_text)
+                                                                <div
+                                                                    class="text-xs text-orange-600 dark:text-orange-400">
+                                                                    {{ $appointment->travel_distance_text }}
+                                                                </div>
                                                             @endif
-                                                            @if ($appointment->travel_hours == 0 && $appointment->travel_minutes == 0)
-                                                                0分
-                                                            @endif
-                                                        </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             @endif
