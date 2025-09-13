@@ -16,6 +16,7 @@
 @import './components/client.css';
 @import './components/error.css';
 @import './components/form.css';
+@import './components/settings.css';
 
 /* レイアウト */
 @import './layouts/page.css';

@@ -3,9 +3,11 @@
         <flux:navlist>
             <flux:navlist.item :href="route('settings.profile')" wire:navigate>{{ __('Profile') }}</flux:navlist.item>
             <flux:navlist.item :href="route('settings.password')" wire:navigate>{{ __('Password') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('settings.appearance')" wire:navigate>{{ __('Appearance') }}
+            <flux:navlist.item :href="route('settings.appearance')" wire:navigate>{{ __('画面設定') }}
             </flux:navlist.item>
-            <flux:navlist.item :href="route('settings.application')" wire:navigate>{{ __('Application') }}
+            <flux:navlist.item :href="route('settings.application')" wire:navigate>{{ __('アポイントメント設定') }}
+            </flux:navlist.item>
+            <flux:navlist.item :href="route('settings.route')" wire:navigate>{{ __('ルート設定') }}
             </flux:navlist.item>
         </flux:navlist>
     </div>

@@ -126,7 +126,7 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
                     $appointmentWithTravel->travel_minutes = $travelMinutes;
                     $appointmentWithTravel->travel_duration_text = $travelData['duration_text'];
                     $appointmentWithTravel->travel_distance_text = $travelData['distance_text'];
-                    $appointmentWithTravel->next_client = $nextAppointment->client->name;
+                    $appointmentWithTravel->next_client = $nextAppointment->client;
                 } else {
                     // Google Maps APIが失敗した場合のフォールバック（デフォルト移動時間を設定）
                     $travelTimeMinutes = 30; // デフォルト30分
@@ -138,7 +138,7 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
                     $appointmentWithTravel->travel_minutes = $travelMinutes;
                     $appointmentWithTravel->travel_duration_text = '30分（推定）';
                     $appointmentWithTravel->travel_distance_text = null;
-                    $appointmentWithTravel->next_client = $nextAppointment->client->name;
+                    $appointmentWithTravel->next_client = $nextAppointment->client;
                 }
             } else {
                 // 住所が設定されていない場合のフォールバック（デフォルト移動時間を設定）
@@ -151,7 +151,7 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
                 $appointmentWithTravel->travel_minutes = $travelMinutes;
                 $appointmentWithTravel->travel_duration_text = '30分（推定）';
                 $appointmentWithTravel->travel_distance_text = null;
-                $appointmentWithTravel->next_client = $nextAppointment->client->name;
+                $appointmentWithTravel->next_client = $nextAppointment->client;
             }
         } else {
             $appointmentWithTravel->travel_time_minutes = null;
@@ -285,9 +285,9 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
                                                                         ({{ $appointment->travel_distance_text }})
                                                                     @endif
                                                                 </span>
-                                                                @if ($appointment->previous_client && $appointment->previous_client->address && $appointment->client->address)
+                                                                @if ($appointment->next_client)
                                                                     <button
-                                                                        onclick="showRoute('{{ $appointment->previous_client->address }}', '{{ $appointment->client->address }}')"
+                                                                        onclick="showRoute('{{ $appointment->client->address }}', '{{ $appointment->next_client->address }}')"
                                                                         class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline ml-2">
                                                                         ルートを表示
                                                                     </button>
