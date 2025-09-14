@@ -1,3 +1,4 @@
+
 <?php
 
 use function Livewire\Volt\{state, rules, computed, mount, updated};
@@ -6,9 +7,8 @@ use App\Models\Appointment;
 use App\Models\Visit;
 use Carbon\Carbon;
 
-// State definitions
 state([
-    'clients' => fn() => Client::whereNotNull('name')->get(),
+    'clients' => fn() => Client::all(),
     'selected_client_id' => '',
     'title' => '',
     'visit_type' => '訪問',
@@ -18,21 +18,6 @@ state([
     'defaultDuration' => 60, // デフォルト60分
 ]);
 
-// Computed properties
-$selectedClient = computed(function () {
-    if (!$this->selected_client_id) {
-        return null;
-    }
-    $client = Client::find($this->selected_client_id);
-    if (!$client) {
-        // クライアントが見つからない場合、selected_client_idをリセット
-        $this->selected_client_id = '';
-        return null;
-    }
-    return $client;
-});
-
-// Lifecycle hooks
 mount(function ($client_id = null) {
     if ($client_id) {
         $this->selected_client_id = $client_id;
@@ -45,130 +30,67 @@ mount(function ($client_id = null) {
 // 開始時間が変更されたときに終了時間を自動設定
 updated([
     'start_datetime' => function () {
-        if (!empty($this->start_datetime) && is_string($this->start_datetime)) {
-            try {
-                $startTime = Carbon::parse($this->start_datetime);
-                $duration = is_numeric($this->defaultDuration) ? (int) $this->defaultDuration : 60;
-                $endTime = $startTime->copy()->addMinutes($duration);
-                $this->end_datetime = $endTime->format('Y-m-d\TH:i');
-            } catch (\Exception $e) {
-                \Log::error('Error parsing datetime:', [
-                    'start_datetime' => $this->start_datetime,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if ($this->start_datetime) {
+            $startTime = Carbon::parse($this->start_datetime);
+            $endTime = $startTime->copy()->addMinutes($this->defaultDuration);
+            $this->end_datetime = $endTime->format('Y-m-d\TH:i');
         }
     },
 ]);
 
-rules(
-    [
-        'selected_client_id' => 'required|exists:clients,id',
-        'title' => 'required|string|max:255',
-        'visit_type' => 'required|string|max:255',
-        'start_datetime' => 'required|date|after:now',
-        'end_datetime' => 'required|date|after:start_datetime',
-        'memo' => 'nullable|string|max:1000',
-    ],
-    [
-        'selected_client_id.required' => 'クライアントを選択してください',
-        'selected_client_id.exists' => '選択されたクライアントが存在しません',
-        'title.required' => '件名を入力してください',
-        'title.max' => '件名は255文字以内で入力してください',
-        'visit_type.required' => '訪問種別を選択してください',
-        'start_datetime.required' => '開始日時を入力してください',
-        'start_datetime.after' => '開始日時は現在時刻より後を指定してください',
-        'end_datetime.required' => '終了日時を入力してください',
-        'end_datetime.after' => '終了日時は開始日時より後を指定してください',
-        'memo.max' => 'メモは1000文字以内で入力してください',
-    ],
-);
+rules([
+    'selected_client_id' => 'required|exists:clients,id',
+    'title' => 'required|string|max:255',
+    'visit_type' => 'required|string|max:255',
+    'start_datetime' => 'required|date|after:now',
+    'end_datetime' => 'required|date|after:start_datetime',
+    'memo' => 'nullable|string|max:1000',
+]);
 
 $save = function () {
-    try {
-        \Log::info('Starting appointment creation...', [
-            'selected_client_id' => $this->selected_client_id,
-            'title' => $this->title,
-            'start_datetime' => $this->start_datetime,
-            'end_datetime' => $this->end_datetime,
-        ]);
+    $validated = $this->validate();
 
-        $validated = $this->validate();
+    $appointment = Appointment::create([
+        'client_id' => $validated['selected_client_id'],
+        'user_id' => auth()->id(),
+        'title' => $validated['title'],
+        'visit_type' => $validated['visit_type'],
+        'start_datetime' => $validated['start_datetime'],
+        'end_datetime' => $validated['end_datetime'],
+        'memo' => $validated['memo'],
+    ]);
 
-        // クライアントの存在確認
-        $client = Client::find($validated['selected_client_id']);
-        if (!$client) {
-            \Log::error('Client not found', ['client_id' => $validated['selected_client_id']]);
-            session()->flash('error', '選択されたクライアントが見つかりません。');
-            return;
-        }
+    \Log::info('Appointment created:', [
+        'appointment_id' => $appointment->id,
+        'client_id' => $appointment->client_id,
+        'title' => $appointment->title,
+    ]);
 
-        \Log::info('Creating appointment for client', [
-            'client_id' => $client->id,
-            'client_name' => $client->name,
-        ]);
+    // アポイントメントを訪問履歴に予定として追加
+    Visit::create([
+        'client_id' => $validated['selected_client_id'],
+        'user_id' => auth()->id(),
+        'visit_type' => $validated['visit_type'],
+        'visited_at' => $validated['start_datetime'],
+        'status' => '予定',
+        'notes' => $validated['memo'] ? "アポイントメント: {$validated['title']}\n{$validated['memo']}" : "アポイントメント: {$validated['title']}",
+        'appointment_id' => $appointment->id, // アポイントメントとの関連付け
+    ]);
 
-        $appointment = Appointment::create([
-            'client_id' => $validated['selected_client_id'],
-            'user_id' => auth()->id(),
-            'title' => $validated['title'],
-            'visit_type' => $validated['visit_type'],
-            'start_datetime' => $validated['start_datetime'],
-            'end_datetime' => $validated['end_datetime'],
-            'memo' => $validated['memo'],
-        ]);
+    \Log::info('Redirecting to created page:', [
+        'appointment_id' => $appointment->id,
+        'route' => 'appointments.created',
+    ]);
 
-        \Log::info('Appointment created:', [
-            'appointment_id' => $appointment->id,
-            'client_id' => $appointment->client_id,
-            'title' => $appointment->title,
-        ]);
-
-        try {
-            // アポイントメントを訪問履歴に予定として追加
-            $visit = Visit::create([
-                'client_id' => $validated['selected_client_id'],
-                'user_id' => auth()->id(),
-                'visit_type' => $validated['visit_type'],
-                'visited_at' => $validated['start_datetime'],
-                'status' => '予定',
-                'notes' => $validated['memo'] ? "アポイントメント: {$validated['title']}\n{$validated['memo']}" : "アポイントメント: {$validated['title']}",
-                'appointment_id' => $appointment->id, // アポイントメントとの関連付け
-            ]);
-
-            \Log::info('Visit record created:', [
-                'visit_id' => $visit->id,
-                'appointment_id' => $appointment->id,
-            ]);
-
-            \Log::info('Redirecting to created page:', [
-                'appointment_id' => $appointment->id,
-                'route' => 'appointments.created',
-            ]);
-
-            return redirect()->route('appointments.created', ['appointmentId' => $appointment->id]);
-        } catch (\Exception $e) {
-            \Log::error('Error creating visit record:', [
-                'error' => $e->getMessage(),
-                'appointment_id' => $appointment->id,
-            ]);
-
-            // アポイントメントを削除（ロールバック）
-            $appointment->delete();
-
-            session()->flash('error', 'アポイントメントの作成中にエラーが発生しました。');
-            return;
-        }
-    } catch (\Exception $e) {
-        \Log::error('Error in appointment creation:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        session()->flash('error', 'アポイントメントの作成中にエラーが発生しました。' . ($e->getMessage() ? "（{$e->getMessage()}）" : ''));
-        return;
-    }
+    return redirect()->route('appointments.created', ['appointmentId' => $appointment->id]);
 };
+
+$selectedClient = computed(function () {
+    if (!$this->selected_client_id) {
+        return null;
+    }
+    return Client::find($this->selected_client_id);
+});
 
 ?>
 

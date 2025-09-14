@@ -52,75 +52,65 @@ $save = function () {
         ->with('success', '訪問先が正常に追加されました。');
 };
 
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★                                                                       ★
+// ★  ここから下の `$formatAddressFromPrefecture` 関数を置き換えてください  ★
+// ★                                                                       ★
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
 $formatAddressFromPrefecture = function ($address) {
     if (empty($address)) {
         return '';
     }
 
-    // 郵便番号を除去（〒で始まる部分）
-    $cleanAddress = preg_replace('/^〒\d{3}-\d{4}\s*/', '', $address);
+    // 郵便番号を除去
+    $address = preg_replace('/^〒\d{3}-\d{4}\s*/', '', $address);
+    // 先頭や末尾の不要な空白、カンマを除去
+    $address = trim($address, " \t\n\r\0\x0B,");
 
     // 日本の都道府県リスト
     $prefectures = ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'];
 
-    // 住所が都道府県から始まっているかチェック
-    $startsWithPrefecture = false;
+    $foundPrefecture = '';
     foreach ($prefectures as $prefecture) {
-        if (str_starts_with($cleanAddress, $prefecture)) {
-            $startsWithPrefecture = true;
+        // str_contains は PHP 8.0+
+        if (str_contains($address, $prefecture)) {
+            $foundPrefecture = $prefecture;
             break;
         }
     }
 
-    // 都道府県から始まっていない場合、都道府県を探して先頭に移動
-    if (!$startsWithPrefecture) {
-        foreach ($prefectures as $prefecture) {
-            $prefectureIndex = strpos($cleanAddress, $prefecture);
-            if ($prefectureIndex !== false) {
-                // 都道府県が見つかった場合、都道府県から始まるように再構築
-                $beforePrefecture = trim(substr($cleanAddress, 0, $prefectureIndex));
-                $afterPrefecture = trim(substr($cleanAddress, $prefectureIndex));
+    // 都道府県が見つかった場合
+    if ($foundPrefecture) {
+        // 都道府県より前の部分を店舗名候補として分離
+        $parts = explode($foundPrefecture, $address, 2);
+        $potentialName = trim($parts[0]);
+        $addressAfterPrefecture = trim($parts[1]);
 
-                // 都道府県の前の部分が店舗名の可能性がある場合は除去
-                if ($beforePrefecture && !preg_match('/^\d/', $beforePrefecture)) {
-                    $this->name = $beforePrefecture;
-                    $cleanAddress = $afterPrefecture;
-                } else {
-                    $cleanAddress = $afterPrefecture;
-                }
-                break;
+        // 候補が空でなく、かつ数字で始まらない場合のみ店舗名として採用
+        if (!empty($potentialName) && !preg_match('/^\d/', $potentialName)) {
+            // 既存のnameが空の場合のみ設定
+            if(empty($this->name)) {
+                $this->name = $potentialName;
             }
         }
+        
+        // 整形後の住所は「都道府県 + それ以降」
+        // これにより番地や建物名が消えるのを防ぐ
+        return $foundPrefecture . $addressAfterPrefecture;
     }
-
-    // 住所を空白で分割
-    $parts = preg_split('/[\s,]+/', $cleanAddress);
-    $addressParts = [];
-    $buildingParts = [];
-    $inBuilding = false;
-
-    foreach ($parts as $part) {
-        // 建物名の開始を検出（括弧や特定のキーワードで判断）
-        if (!$inBuilding && (strpos($part, '（') !== false || strpos($part, '(') !== false || preg_match('/(ビル|マンション|アパート|ハイツ|コーポ|パレス|メゾン|タワー|ビレッジ|プラザ|レジデンス)/', $part))) {
-            $inBuilding = true;
-        }
-
-        if ($inBuilding) {
-            $buildingParts[] = $part;
-        } else {
-            $addressParts[] = $part;
-        }
-    }
-
-    // 住所と建物名を別々に結合
-    $mainAddress = implode(' ', $addressParts);
-    $buildingName = implode(' ', $buildingParts);
-
-    // 最終的な住所を組み立て
-    $finalAddress = trim($mainAddress . ($buildingName ? ' ' . $buildingName : ''));
-
-    return $finalAddress;
+    
+    // 都道府県が見つからない場合は、元の住所をそのまま返す
+    return $address;
 };
+
+
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★                                                                       ★
+// ★  ここから上の `$formatAddressFromPrefecture` 関数を置き換えてください  ★
+// ★                                                                       ★
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
 
 $expandShortUrl = function ($url) {
     try {
@@ -332,6 +322,7 @@ $setPlaceDetails = function ($name, $address, $phone, $lat, $lng, $website = nul
         $this->website = $website;
     }
 };
+
 
 ?>
 

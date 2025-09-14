@@ -107,9 +107,7 @@ $calculateTravelTimes = function ($appointments) {
         $next = $appointments[$i + 1];
 
         // クライアント情報とその位置情報が存在することを確認
-        if (!$current->client || !$next->client || 
-            !$current->client->latitude || !$current->client->longitude ||
-            !$next->client->latitude || !$next->client->longitude) {
+        if (!$current->client || !$next->client || !$current->client->latitude || !$current->client->longitude || !$next->client->latitude || !$next->client->longitude) {
             \Log::warning('Missing client or location data', [
                 'current_appointment' => $current->id,
                 'next_appointment' => $next->id,
@@ -135,14 +133,21 @@ $calculateTravelTimes = function ($appointments) {
                 auth()->user()->use_highways,
             );
 
-        if ($result) {
-            $this->travelTimes[$current->id] = [
-                'duration' => $result['duration'],
-                'duration_text' => $result['duration_text'],
-                'distance' => $result['distance'],
-                'distance_text' => $result['distance_text'],
-                'next_appointment_id' => $next->id,
-            ];
+            if ($result) {
+                $this->travelTimes[$current->id] = [
+                    'duration' => $result['duration'],
+                    'duration_text' => $result['duration_text'],
+                    'distance' => $result['distance'],
+                    'distance_text' => $result['distance_text'],
+                    'next_appointment_id' => $next->id,
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error calculating travel time:', [
+                'error' => $e->getMessage(),
+                'current_appointment' => $current->id,
+                'next_appointment' => $next->id,
+            ]);
         }
     }
 };
