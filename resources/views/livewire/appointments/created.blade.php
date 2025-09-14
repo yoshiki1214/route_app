@@ -9,6 +9,7 @@ state([
     'appointment' => null,
     'appointmentDate' => null,
     'nearbyClients' => [],
+    'travelTimes' => [],
 ]);
 
 mount(function ($appointmentId = null) {
@@ -89,8 +90,67 @@ $todaysAppointments = computed(function () {
         return collect();
     }
 
-    return Appointment::with('client')->whereDate('start_datetime', $this->appointmentDate)->orderBy('start_datetime')->get();
+    $appointments = Appointment::with('client')->whereDate('start_datetime', $this->appointmentDate)->orderBy('start_datetime')->get();
+
+    // 移動時間を計算
+    $this->calculateTravelTimes($appointments);
+
+    return $appointments;
 });
+
+$calculateTravelTimes = function ($appointments) {
+    $optimizer = new \App\Services\RouteOptimizer();
+    $this->travelTimes = [];
+
+    for ($i = 0; $i < $appointments->count() - 1; $i++) {
+        $current = $appointments[$i];
+        $next = $appointments[$i + 1];
+
+        // クライアント情報とその位置情報が存在することを確認
+        if (!$current->client || !$next->client || !$current->client->latitude || !$current->client->longitude || !$next->client->latitude || !$next->client->longitude) {
+            \Log::warning('Missing client or location data', [
+                'current_appointment' => $current->id,
+                'next_appointment' => $next->id,
+                'current_client' => $current->client ? $current->client->id : null,
+                'next_client' => $next->client ? $next->client->id : null,
+            ]);
+            continue;
+        }
+
+        // Google Maps APIを使用して移動時間を計算
+        try {
+            $result = $optimizer->getDirectionsData(
+                [
+                    'lat' => $current->client->latitude,
+                    'lng' => $current->client->longitude,
+                ],
+                [
+                    'lat' => $next->client->latitude,
+                    'lng' => $next->client->longitude,
+                ],
+                auth()->user()->travel_mode,
+                auth()->user()->use_toll_roads,
+                auth()->user()->use_highways,
+            );
+
+            if ($result) {
+                $this->travelTimes[$current->id] = [
+                    'duration' => $result['duration'],
+                    'duration_text' => $result['duration_text'],
+                    'distance' => $result['distance'],
+                    'distance_text' => $result['distance_text'],
+                    'next_appointment_id' => $next->id,
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error calculating travel time:', [
+                'error' => $e->getMessage(),
+                'current_appointment' => $current->id,
+                'next_appointment' => $next->id,
+            ]);
+        }
+    }
+};
 
 ?>
 
@@ -191,6 +251,40 @@ $todaysAppointments = computed(function () {
                                         {{ Carbon::parse($appointment->end_datetime)->format('H:i') }}
                                     </p>
                                     <p class="text-xs text-gray-500">{{ $appointment->visit_type }}</p>
+                                    @if (isset($travelTimes[$appointment->id]))
+                                        <div class="mt-2">
+                                            <div class="flex items-center justify-end gap-2">
+                                                <div class="text-xs text-gray-500">
+                                                    移動: {{ $travelTimes[$appointment->id]['duration_text'] }}
+                                                    ({{ $travelTimes[$appointment->id]['distance_text'] }})
+                                                </div>
+                                                @php
+                                                    $nextAppointment = $this->todaysAppointments->firstWhere(
+                                                        'id',
+                                                        $travelTimes[$appointment->id]['next_appointment_id'],
+                                                    );
+                                                    $canShowRoute =
+                                                        $appointment->client &&
+                                                        $nextAppointment &&
+                                                        $nextAppointment->client &&
+                                                        $appointment->client->latitude &&
+                                                        $appointment->client->longitude &&
+                                                        $nextAppointment->client->latitude &&
+                                                        $nextAppointment->client->longitude;
+                                                @endphp
+                                                @if ($canShowRoute)
+                                                    <a href="{{ route('routemap', [
+                                                        'origin' => $appointment->client->latitude . ',' . $appointment->client->longitude,
+                                                        'destination' => $nextAppointment->client->latitude . ',' . $nextAppointment->client->longitude,
+                                                    ]) }}"
+                                                        target="_blank"
+                                                        class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                                        ルートを表示
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         @empty

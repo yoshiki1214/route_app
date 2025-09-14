@@ -22,6 +22,7 @@ $todayAppointments = computed(function () {
     $today = Carbon::today();
     return Appointment::with(['client', 'user'])
         ->whereDate('start_datetime', $today)
+        ->whereHas('client') // clientが存在する場合のみ
         ->orderBy('start_datetime')
         ->get();
 });
@@ -30,6 +31,7 @@ $upcomingAppointments = computed(function () {
     $today = Carbon::today();
     return Appointment::with(['client', 'user'])
         ->whereDate('start_datetime', '>', $today)
+        ->whereHas('client') // clientが存在する場合のみ
         ->orderBy('start_datetime')
         ->limit(5)
         ->get();
@@ -174,7 +176,7 @@ $todayAppointmentsWithTravelTime = computed(function () use ($getGoogleMapsTrave
     <div class="py-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">営業管理システム</h1>
+                <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Route GO</h1>
                 <div class="flex space-x-2">
                     <button wire:click="$set('activeTab', 'today')" @class([
                         'px-4 py-2 rounded-md text-sm font-medium transition-colors',

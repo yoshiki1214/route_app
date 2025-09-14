@@ -1,3 +1,4 @@
+
 <?php
 
 use function Livewire\Volt\{state, rules, computed, mount, updated};
