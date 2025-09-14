@@ -45,10 +45,18 @@ mount(function ($client_id = null) {
 // 開始時間が変更されたときに終了時間を自動設定
 updated([
     'start_datetime' => function () {
-        if ($this->start_datetime) {
-            $startTime = Carbon::parse($this->start_datetime);
-            $endTime = $startTime->copy()->addMinutes($this->defaultDuration);
-            $this->end_datetime = $endTime->format('Y-m-d\TH:i');
+        if (!empty($this->start_datetime) && is_string($this->start_datetime)) {
+            try {
+                $startTime = Carbon::parse($this->start_datetime);
+                $duration = is_numeric($this->defaultDuration) ? (int) $this->defaultDuration : 60;
+                $endTime = $startTime->copy()->addMinutes($duration);
+                $this->end_datetime = $endTime->format('Y-m-d\TH:i');
+            } catch (\Exception $e) {
+                \Log::error('Error parsing datetime:', [
+                    'start_datetime' => $this->start_datetime,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     },
 ]);
@@ -187,7 +195,7 @@ $save = function () {
 
         <!-- フォーム -->
         <div class="card">
-            <form wire:submit.prevent="save" class="card-content">
+            <form wire:submit="save" class="card-content">
                 <div class="form-group">
                     <!-- クライアント選択 -->
                     @if (!$this->selected_client_id)

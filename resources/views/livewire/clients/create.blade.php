@@ -76,13 +76,14 @@ $formatAddressFromPrefecture = function ($address) {
     if (!$startsWithPrefecture) {
         foreach ($prefectures as $prefecture) {
             $prefectureIndex = strpos($cleanAddress, $prefecture);
-            if ($prefectureIndex > 0) {
+            if ($prefectureIndex !== false) {
                 // 都道府県が見つかった場合、都道府県から始まるように再構築
                 $beforePrefecture = trim(substr($cleanAddress, 0, $prefectureIndex));
                 $afterPrefecture = trim(substr($cleanAddress, $prefectureIndex));
 
                 // 都道府県の前の部分が店舗名の可能性がある場合は除去
                 if ($beforePrefecture && !preg_match('/^\d/', $beforePrefecture)) {
+                    $this->name = $beforePrefecture;
                     $cleanAddress = $afterPrefecture;
                 } else {
                     $cleanAddress = $afterPrefecture;
@@ -92,27 +93,31 @@ $formatAddressFromPrefecture = function ($address) {
         }
     }
 
-    // 番地以降の情報を保持
-    $addressParts = explode(' ', $cleanAddress);
-    $detailedAddress = '';
-    foreach ($addressParts as $part) {
-        if (preg_match('/(\d+(-\d+)*)|([０-９]+(-[０-９]+)*)/', $part)) {
-            $detailedAddress = implode(' ', array_slice($addressParts, array_search($part, $addressParts)));
-            break;
+    // 住所を空白で分割
+    $parts = preg_split('/[\s,]+/', $cleanAddress);
+    $addressParts = [];
+    $buildingParts = [];
+    $inBuilding = false;
+
+    foreach ($parts as $part) {
+        // 建物名の開始を検出（括弧や特定のキーワードで判断）
+        if (!$inBuilding && (strpos($part, '（') !== false || strpos($part, '(') !== false || preg_match('/(ビル|マンション|アパート|ハイツ|コーポ|パレス|メゾン|タワー|ビレッジ|プラザ|レジデンス)/', $part))) {
+            $inBuilding = true;
+        }
+
+        if ($inBuilding) {
+            $buildingParts[] = $part;
+        } else {
+            $addressParts[] = $part;
         }
     }
 
-    // 都道府県と市区町村を取得
-    $mainAddress = '';
-    foreach ($addressParts as $part) {
-        if (preg_match('/(\d+(-\d+)*)|([０-９]+(-[０-９]+)*)/', $part)) {
-            break;
-        }
-        $mainAddress .= $part;
-    }
+    // 住所と建物名を別々に結合
+    $mainAddress = implode(' ', $addressParts);
+    $buildingName = implode(' ', $buildingParts);
 
     // 最終的な住所を組み立て
-    $finalAddress = trim($mainAddress . ' ' . $detailedAddress);
+    $finalAddress = trim($mainAddress . ($buildingName ? ' ' . $buildingName : ''));
 
     return $finalAddress;
 };
